@@ -4,6 +4,8 @@ services:
   openvpn:
     build:
       context: .
+      args:
+        TARGETARCH: "amd64"
       dockerfile: Dockerfile.openvpn
     image: openvpn:local
     command: /etc/openvpn/setup/configure.sh
@@ -22,6 +24,8 @@ services:
   ovpn-admin:
     build:
       context: .
+      args:
+        TARGETARCH: "amd64"
     image: ovpn-admin:local
     command: /app/ovpn-admin
     environment:
