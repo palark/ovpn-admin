@@ -1,57 +1,56 @@
----
 apiVersion: v1
 kind: Service
 metadata:
-  name: ovpn-admin
+  name: {{ include "ovpn-admin-chart.fullname" . }}
+  labels:
+    {{- include "ovpn-admin-chart.labels" . | nindent 4 }}
 spec:
-  clusterIP: None
+  type: {{ .Values.service.openvpnAdmin.type }}
   ports:
-  - name: http
-    port: 8000
-    protocol: TCP
-    targetPort: 8000
+    - port: {{ .Values.service.openvpnAdmin.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
   selector:
-    app: openvpn
----
-{{- if hasKey .Values.openvpn "inlet" }}
+    {{- include "ovpn-admin-chart.selectorLabels" . | nindent 4 }}
 
-  {{- if eq .Values.openvpn.inlet "LoadBalancer" }}
+{{- if eq .Values.service.openvpn.connectionType "LoadBalancer"}}
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: openvpn-external
+  labels:
+    {{- include "ovpn-admin-chart.labels" . | nindent 4 }}
 spec:
   externalTrafficPolicy: Local
-  type: LoadBalancer
+  type: {{ .Values.service.openvpn.type }}
   ports:
-    - name: openvpn-tcp
-      protocol: TCP
-      port: {{ .Values.openvpn.externalPort | default 1194 }}
+    - port: {{ .Values.service.openvpn.port }}
       targetPort: openvpn-tcp
+      protocol: TCP
+      name: openvpn-tcp
   selector:
-    app: openvpn
-  {{- else if eq .Values.openvpn.inlet "ExternalIP" }}
+    {{- include "ovpn-admin-chart.selectorLabels" . | nindent 4 }}
+
+{{- else if eq .Values.service.openvpn.connectionType "ExternalIP" }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: openvpn-external
+  labels:
+    {{- include "ovpn-admin-chart.labels" . | nindent 4 }}
 spec:
+  externalTrafficPolicy: Local
   type: ClusterIP
   externalIPs:
-  - {{ .Values.openvpn.externalIP }}
+  - {{ .Values.service.openvpn.externalIP }}
   ports:
-  - name: openvpn-tcp
-    port: {{ .Values.openvpn.externalPort | default 1194 }}
-    protocol: TCP
-    targetPort: openvpn-tcp
+    - port: {{ .Values.service.openvpn.externalPort }}
+      targetPort: openvpn-tcp
+      protocol: TCP
+      name: openvpn-tcp
   selector:
-    app: openvpn
-  {{- else if eq .Values.openvpn.inlet "HostPort" }}
----
-  {{- else }}
-    {{- cat "Unsupported inlet type" .inlet | fail }}
-  {{- end }}
-
-{{- end }}
+    {{- include "ovpn-admin-chart.selectorLabels" . | nindent 4 }}
+{{- end -}}
