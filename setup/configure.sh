@@ -48,7 +48,7 @@ if [ ${OVPN_PASSWD_AUTH} = "true" ]; then
   echo "auth-user-pass-verify /etc/openvpn/scripts/auth.sh via-file" | tee -a /etc/openvpn/openvpn.conf
   echo "script-security 2" | tee -a /etc/openvpn/openvpn.conf
   echo "verify-client-cert require" | tee -a /etc/openvpn/openvpn.conf
-  openvpn-user db-init --db.path=$EASY_RSA_LOC/pki/users.db
+  openvpn-user db-init --db.path=$EASY_RSA_LOC/pki/users.db && openvpn-user db-migrate --db.path=$EASY_RSA_LOC/pki/users.db
 fi
 
 [ -d $EASY_RSA_LOC/pki ] && chmod 755 $EASY_RSA_LOC/pki
