@@ -9,11 +9,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
 	"io/ioutil"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"net"
 	"net/http"
 	"os"
@@ -24,6 +20,11 @@ import (
 	"text/template"
 	"time"
 	"unicode/utf8"
+
+	"github.com/google/uuid"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	"github.com/gobuffalo/packr/v2"
 	"github.com/prometheus/client_golang/prometheus"
@@ -520,6 +521,11 @@ func main() {
 		ovpnAdmin.mgmtInterfaces[parts[0]] = parts[len(parts)-1]
 	}
 
+	if ovpnAdmin.role == "slave" {
+		ovpnAdmin.syncDataFromMaster()
+		go ovpnAdmin.syncWithMaster()
+	}
+
 	ovpnAdmin.mgmtSetTimeFormat()
 
 	ovpnAdmin.registerMetrics()
@@ -545,11 +551,6 @@ func main() {
 
 	if *ccdEnabled {
 		ovpnAdmin.modules = append(ovpnAdmin.modules, "ccd")
-	}
-
-	if ovpnAdmin.role == "slave" {
-		ovpnAdmin.syncDataFromMaster()
-		go ovpnAdmin.syncWithMaster()
 	}
 
 	ovpnAdmin.templates = packr.New("template", "./templates")
