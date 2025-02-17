@@ -9,11 +9,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
 	"io/ioutil"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"net"
 	"net/http"
 	"os"
@@ -24,6 +20,11 @@ import (
 	"text/template"
 	"time"
 	"unicode/utf8"
+
+	"github.com/google/uuid"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	"github.com/gobuffalo/packr/v2"
 	"github.com/prometheus/client_golang/prometheus"
@@ -71,6 +72,7 @@ var (
 	ccdTemplatePath          = kingpin.Flag("templates.ccd-path", "path to custom ccd.tpl").Default("").Envar("OVPN_TEMPLATES_CCD_PATH").String()
 	authByPassword           = kingpin.Flag("auth.password", "enable additional password authentication").Default("false").Envar("OVPN_AUTH").Bool()
 	authDatabase             = kingpin.Flag("auth.db", "database path for password authentication").Default("./easyrsa/pki/users.db").Envar("OVPN_AUTH_DB_PATH").String()
+	authDataBaseInit         = kingpin.Flag("auth.db-init", "enable database initialization if db user not exists or size is 0").Default("false").Envar("OVPN_AUTH_DB_INIT").Bool()
 	logLevel                 = kingpin.Flag("log.level", "set log level: trace, debug, info, warn, error (default info)").Default("info").Envar("LOG_LEVEL").String()
 	logFormat                = kingpin.Flag("log.format", "set log format: text, json (default text)").Default("text").Envar("LOG_FORMAT").String()
 	storageBackend           = kingpin.Flag("storage.backend", "storage backend: filesystem, kubernetes.secrets (default filesystem)").Default("filesystem").Envar("STORAGE_BACKEND").String()
@@ -504,6 +506,10 @@ func main() {
 		*indexTxtPath = *easyrsaDirPath + "/pki/index.txt"
 	}
 
+	if *authDataBaseInit {
+		ovpnUserInitDb()
+	}
+
 	ovpnAdmin := new(OvpnAdmin)
 
 	ovpnAdmin.lastSyncTime = "unknown"
@@ -558,27 +564,27 @@ func main() {
 	static := CacheControlWrapper(http.FileServer(staticBox))
 
 	http.Handle(*listenBaseUrl, http.StripPrefix(strings.TrimRight(*listenBaseUrl, "/"), static))
-	http.HandleFunc(*listenBaseUrl + "api/server/settings", ovpnAdmin.serverSettingsHandler)
-	http.HandleFunc(*listenBaseUrl + "api/users/list", ovpnAdmin.userListHandler)
-	http.HandleFunc(*listenBaseUrl + "api/user/create", ovpnAdmin.userCreateHandler)
-	http.HandleFunc(*listenBaseUrl + "api/user/change-password", ovpnAdmin.userChangePasswordHandler)
-	http.HandleFunc(*listenBaseUrl + "api/user/rotate", ovpnAdmin.userRotateHandler)
-	http.HandleFunc(*listenBaseUrl + "api/user/delete", ovpnAdmin.userDeleteHandler)
-	http.HandleFunc(*listenBaseUrl + "api/user/revoke", ovpnAdmin.userRevokeHandler)
-	http.HandleFunc(*listenBaseUrl + "api/user/unrevoke", ovpnAdmin.userUnrevokeHandler)
-	http.HandleFunc(*listenBaseUrl + "api/user/config/show", ovpnAdmin.userShowConfigHandler)
-	http.HandleFunc(*listenBaseUrl + "api/user/disconnect", ovpnAdmin.userDisconnectHandler)
-	http.HandleFunc(*listenBaseUrl + "api/user/statistic", ovpnAdmin.userStatisticHandler)
-	http.HandleFunc(*listenBaseUrl + "api/user/ccd", ovpnAdmin.userShowCcdHandler)
-	http.HandleFunc(*listenBaseUrl + "api/user/ccd/apply", ovpnAdmin.userApplyCcdHandler)
+	http.HandleFunc(*listenBaseUrl+"api/server/settings", ovpnAdmin.serverSettingsHandler)
+	http.HandleFunc(*listenBaseUrl+"api/users/list", ovpnAdmin.userListHandler)
+	http.HandleFunc(*listenBaseUrl+"api/user/create", ovpnAdmin.userCreateHandler)
+	http.HandleFunc(*listenBaseUrl+"api/user/change-password", ovpnAdmin.userChangePasswordHandler)
+	http.HandleFunc(*listenBaseUrl+"api/user/rotate", ovpnAdmin.userRotateHandler)
+	http.HandleFunc(*listenBaseUrl+"api/user/delete", ovpnAdmin.userDeleteHandler)
+	http.HandleFunc(*listenBaseUrl+"api/user/revoke", ovpnAdmin.userRevokeHandler)
+	http.HandleFunc(*listenBaseUrl+"api/user/unrevoke", ovpnAdmin.userUnrevokeHandler)
+	http.HandleFunc(*listenBaseUrl+"api/user/config/show", ovpnAdmin.userShowConfigHandler)
+	http.HandleFunc(*listenBaseUrl+"api/user/disconnect", ovpnAdmin.userDisconnectHandler)
+	http.HandleFunc(*listenBaseUrl+"api/user/statistic", ovpnAdmin.userStatisticHandler)
+	http.HandleFunc(*listenBaseUrl+"api/user/ccd", ovpnAdmin.userShowCcdHandler)
+	http.HandleFunc(*listenBaseUrl+"api/user/ccd/apply", ovpnAdmin.userApplyCcdHandler)
 
-	http.HandleFunc(*listenBaseUrl + "api/sync/last/try", ovpnAdmin.lastSyncTimeHandler)
-	http.HandleFunc(*listenBaseUrl + "api/sync/last/successful", ovpnAdmin.lastSuccessfulSyncTimeHandler)
-	http.HandleFunc(*listenBaseUrl + downloadCertsApiUrl, ovpnAdmin.downloadCertsHandler)
-	http.HandleFunc(*listenBaseUrl + downloadCcdApiUrl, ovpnAdmin.downloadCcdHandler)
+	http.HandleFunc(*listenBaseUrl+"api/sync/last/try", ovpnAdmin.lastSyncTimeHandler)
+	http.HandleFunc(*listenBaseUrl+"api/sync/last/successful", ovpnAdmin.lastSuccessfulSyncTimeHandler)
+	http.HandleFunc(*listenBaseUrl+downloadCertsApiUrl, ovpnAdmin.downloadCertsHandler)
+	http.HandleFunc(*listenBaseUrl+downloadCcdApiUrl, ovpnAdmin.downloadCcdHandler)
 
 	http.Handle(*metricsPath, promhttp.HandlerFor(ovpnAdmin.promRegistry, promhttp.HandlerOpts{}))
-	http.HandleFunc(*listenBaseUrl + "ping", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc(*listenBaseUrl+"ping", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "pong")
 	})
 
@@ -1053,7 +1059,7 @@ func (oAdmin *OvpnAdmin) userRevoke(username string) (error, string) {
 		}
 
 		if *authByPassword {
-			o := runBash(fmt.Sprintf("openvpn-user revoke --db-path %s --user %s", *authDatabase, username))
+			o := runBash(fmt.Sprintf("openvpn-user revoke --db.path %s --user %s", *authDatabase, username))
 			log.Debug(o)
 		}
 
@@ -1115,7 +1121,7 @@ func (oAdmin *OvpnAdmin) userUnrevoke(username string) (error, string) {
 						_ = runBash(fmt.Sprintf("cd %s && %s gen-crl 1>/dev/null", *easyrsaDirPath, *easyrsaBinPath))
 
 						if *authByPassword {
-							o := runBash(fmt.Sprintf("openvpn-user restore --db-path %s --user %s", *authDatabase, username))
+							o := runBash(fmt.Sprintf("openvpn-user restore --db.path %s --user %s", *authDatabase, username))
 							log.Debug(o)
 						}
 
@@ -1340,7 +1346,7 @@ func (oAdmin *OvpnAdmin) mgmtGetActiveClients() []clientStatus {
 			break
 		}
 		oAdmin.mgmtRead(conn) // read welcome message
-		conn.Write([]byte("status\n"))
+		conn.Write([]byte("status 1\n"))
 		activeClients = append(activeClients, oAdmin.mgmtConnectedUsersParser(oAdmin.mgmtRead(conn), srv)...)
 		conn.Close()
 	}
@@ -1498,6 +1504,13 @@ func unArchiveCcd() {
 	err := extractFromArchive(ccdArchivePath, *ccdDir)
 	if err != nil {
 		log.Warnf("unArchiveCcd: extractFromArchive() %s", err)
+	}
+}
+
+func ovpnUserInitDb() {
+	if fi, err := os.Stat(*authDatabase); errors.Is(err, os.ErrNotExist) || fi.Size() == 0 {
+		i := runBash(fmt.Sprintf("openvpn-user --db.path %[1]s db-init && openvpn-user --db.path %[1]s db-migrate", *authDatabase))
+		log.Debug(i)
 	}
 }
 

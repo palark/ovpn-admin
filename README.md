@@ -157,7 +157,10 @@ Flags:
 
   --auth.db="./easyrsa/pki/users.db"
   (or OVPN_AUTH_DB_PATH)      database path for password authorization
-  
+
+  --auth.db-init
+  (or OVPN_AUTH_DB_INIT)      enable database init if user db not exists or size is 0
+   
   --log.level                  set log level: trace, debug, info, warn, error (default info)
   (or LOG_LEVEL)
   
