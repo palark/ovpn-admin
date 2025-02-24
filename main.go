@@ -74,6 +74,8 @@ var (
 	logLevel                 = kingpin.Flag("log.level", "set log level: trace, debug, info, warn, error (default info)").Default("info").Envar("LOG_LEVEL").String()
 	logFormat                = kingpin.Flag("log.format", "set log format: text, json (default text)").Default("text").Envar("LOG_FORMAT").String()
 	storageBackend           = kingpin.Flag("storage.backend", "storage backend: filesystem, kubernetes.secrets (default filesystem)").Default("filesystem").Envar("STORAGE_BACKEND").String()
+	googleAuth2FAEnabled     = kingpin.Flag("auth.mfa", "enable 2FA authentication").Default("false").Envar("OVPN_2FA").Bool()
+	googleAuthDir            = kingpin.Flag("google-auth.path", "path to store qr-code and secret keys of users").Default("/etc/google-auth").Envar("GOOGLE_2FA_AUTH_DIR").String()
 
 	certsArchivePath = "/tmp/" + certsArchiveFileName
 	ccdArchivePath   = "/tmp/" + ccdArchiveFileName
@@ -547,6 +549,10 @@ func main() {
 		ovpnAdmin.modules = append(ovpnAdmin.modules, "ccd")
 	}
 
+	if *googleAuth2FAEnabled {
+		ovpnAdmin.modules = append(ovpnAdmin.modules, "google-auth-2fa")
+	}
+
 	if ovpnAdmin.role == "slave" {
 		ovpnAdmin.syncDataFromMaster()
 		go ovpnAdmin.syncWithMaster()
@@ -576,6 +582,7 @@ func main() {
 	http.HandleFunc(*listenBaseUrl + "api/sync/last/successful", ovpnAdmin.lastSuccessfulSyncTimeHandler)
 	http.HandleFunc(*listenBaseUrl + downloadCertsApiUrl, ovpnAdmin.downloadCertsHandler)
 	http.HandleFunc(*listenBaseUrl + downloadCcdApiUrl, ovpnAdmin.downloadCcdHandler)
+	http.HandleFunc(*listenBaseUrl + "api/qr-code/", downloadHandler)
 
 	http.Handle(*metricsPath, promhttp.HandlerFor(ovpnAdmin.promRegistry, promhttp.HandlerOpts{}))
 	http.HandleFunc(*listenBaseUrl + "ping", func(w http.ResponseWriter, r *http.Request) {
@@ -584,6 +591,17 @@ func main() {
 
 	log.Printf("Bind: http://%s:%s%s", *listenHost, *listenPort, *listenBaseUrl)
 	log.Fatal(http.ListenAndServe(*listenHost+":"+*listenPort, nil))
+}
+
+func downloadHandler(w http.ResponseWriter, r *http.Request) {
+	username := strings.TrimPrefix(r.URL.Path, "/api/download/")
+	imagePath := fmt.Sprintf("%s/%s.png", *googleAuthDir, username)
+
+	if _, err := os.Stat(imagePath); os.IsNotExist(err) {
+		http.Error(w, "Image not found", http.StatusNotFound)
+		return
+	}
+	http.ServeFile(w, r, imagePath)
 }
 
 func CacheControlWrapper(h http.Handler) http.Handler {
@@ -985,7 +1003,7 @@ func (oAdmin *OvpnAdmin) userCreate(username, password string) (bool, string) {
 			log.Error(err)
 		}
 	} else {
-		o := runBash(fmt.Sprintf("cd %s && %s build-client-full %s nopass 1>/dev/null", *easyrsaDirPath, *easyrsaBinPath, username))
+		o := runBash(fmt.Sprintf("cd %s && echo 'yes' | sudo %s build-client-full %s nopass 1>/dev/null", *easyrsaDirPath, *easyrsaBinPath, username))
 		log.Debug(o)
 	}
 
@@ -993,10 +1011,14 @@ func (oAdmin *OvpnAdmin) userCreate(username, password string) (bool, string) {
 		o := runBash(fmt.Sprintf("openvpn-user create --db.path %s --user %s --password %s", *authDatabase, username, password))
 		log.Debug(o)
 	}
+	if *googleAuth2FAEnabled {
+	    mfa_auth := runBash(fmt.Sprintf("sudo /etc/openvpn/google-auth.sh %s", username))
+	    log.Debug(mfa_auth)
+	}
 
 	log.Infof("Certificate for user %s issued", username)
 
-	//oAdmin.clients = oAdmin.usersList()
+	oAdmin.clients = oAdmin.usersList()
 
 	return true, ucErr
 }

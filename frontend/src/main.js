@@ -164,6 +164,14 @@ new Vue({
         showForModule: ["core"],
       },
       {
+        name: 'u-download-qrcode',
+        label: 'Download QR Code',
+        class: 'btn-info',
+        showWhenStatus: 'Active',
+        showForServerRole: ['master', 'slave'],
+        showForModule: ["google-auth-2fa"],
+      },
+      {
         name: 'u-edit-ccd',
         label: 'Edit routes',
         class: 'btn-primary',
@@ -271,7 +279,23 @@ new Vue({
         link.click()
         URL.revokeObjectURL(link.href)
       }).catch(console.error);
-    })
+    })   
+    _this.$root.$on('u-download-qrcode', function () {
+      const url = `/api/qr-code/${_this.username}`;
+    
+      axios.get(url, { responseType: 'blob' })
+        .then(function (response) {
+          const blob = new Blob([response.data], { type: 'image/png' });
+    
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(blob);
+          link.download = _this.username + ".png"; 
+          link.click();
+    
+          URL.revokeObjectURL(link.href);
+        })
+        .catch(console.error);
+    });
     _this.$root.$on('u-edit-ccd', function () {
       _this.u.modalShowCcdVisible = true;
       var data = new URLSearchParams();
