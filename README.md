@@ -15,6 +15,7 @@ Simple web UI to manage OpenVPN users, their certificates & routes in Linux. Whi
 * (optionally) Specifying/changing password for additional authorization in OpenVPN;
 * (optionally) Specifying the Kubernetes LoadBalancer if it's used in front of the OpenVPN server (to get an automatically defined `remote` in the `client.conf.tpl` template).
 * (optionally) Storing certificates and other files in Kubernetes Secrets (**Attention, this feature is experimental!**).
+* (optionally) Enabling Google Auth 2FA for each user.
 
 ### Screenshots
 
@@ -63,7 +64,51 @@ cd ovpn-admin
 
 (Please don't forget to configure all needed params in advance.)
 
-### 3. Prebuilt binary
+### 3. Building from source (for enabling google-auth 2FA only)
+
+***Note: This configuration is for enabling 2FA with the admin portal and must be run on the host machine. It will not work in the Docker environment due to compatibility issues with the Google Auth 2FA setup in Docker.***
+
+Requirements. You need Linux with the following components installed:
+- [golang](https://golang.org/doc/install)
+- [packr2](https://github.com/gobuffalo/packr#installation)
+- [nodejs/npm](https://nodejs.org/en/download/package-manager/)
+
+Commands to execute:
+
+```bash
+git clone https://github.com/palark/ovpn-admin.git
+cd ovpn-admin
+./bootstrap.sh
+./build.sh
+./ovpn-admin
+
+./setup/configure.sh
+```
+
+To enable the necessary authentication features, follow these steps:
+
+1. Add the following lines in `templates/client.conf.tpl`:
+   - auth-user-pass
+   - auth-nocache
+   - reneg-sec 0
+
+2. Add the following line in `setup/openvpn.conf`:
+   - plugin /usr/lib/openvpn/openvpn-plugin-auth-pam.so openvpn
+
+3. Set the following varibales with the speicified values in `main.go`
+   ```
+   easyrsaDirPath = /etc/openvpn/easyrsa
+   indexTxtPath = /etc/openvpn/easyrsa/pki/index.txt
+   authDatabase = /etc/openvpn/easyrsa/pki/users.db
+   ccdDir = /etc/openvpn/ccd (if ccdEnabled set to true)
+   ```
+
+4. Set the following varibales with the speicified values in `setup/configure.sh`
+   ```
+   OVPN_2FA=true
+   ```
+
+### 4. Prebuilt binary
 
 You can also download and use prebuilt binaries from the [releases](https://github.com/palark/ovpn-admin/releases/latest) page — just choose a relevant tar.gz file.
 
