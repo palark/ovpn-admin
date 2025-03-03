@@ -1,0 +1,107 @@
+name: Chart Test
+on:
+  push:
+    tags:
+      - v*
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  chart:
+    name: Chart
+
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.changes.outputs.changed }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.10.3
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Set up chart-testing
+        uses: helm/chart-testing-action@v2.6.1
+
+      - name: Lint
+        run: ct lint
+
+      - name: Check generated docs
+        run: |
+          make docs
+          test "$(git diff --name-only)" == "" \
+          || ( printf >&2 "\nREADME files are not up to date (run 'make docs'), differences:\n\n%s\n\n" "$(git diff)" ; exit 1 ; )
+
+      - name: Detect changes
+        id: changes
+        run: |
+          changed=$(ct list-changed)
+          if [[ -n "$changed" ]]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+  chart-test:
+    name: Chart Test
+    runs-on: ubuntu-latest
+    needs: chart
+    if: needs.chart.outputs.changed == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        kube: ["1.24", "1.25", "1.26"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.10.3
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Set up chart-testing
+        uses: helm/chart-testing-action@v2.6.1
+
+      # See https://github.com/kubernetes-sigs/kind/releases/tag/v0.17.0
+      - name: Determine KinD node image version
+        id: node_image
+        run: |
+          case ${{ matrix.kube }} in
+            1.24)
+              NODE_IMAGE=kindest/node:v1.24.7@sha256:577c630ce8e509131eab1aea12c022190978dd2f745aac5eb1fe65c0807eb315 ;;
+            1.25)
+              NODE_IMAGE=kindest/node:v1.25.3@sha256:f52781bc0d7a19fb6c405c2af83abfeb311f130707a0e219175677e366cc45d1 ;;
+            1.26)
+              NODE_IMAGE=kindest/node:v1.26.0@sha256:691e24bd2417609db7e589e1a479b902d2e209892a10ce375fab60a8407c7352 ;;
+            esac
+
+            echo "image=$NODE_IMAGE" >> $GITHUB_OUTPUT
+
+      - name: Create KinD cluster
+        uses: helm/kind-action@v1.12.0
+        with:
+          version: v0.17.0
+          node_image: ${{ steps.node_image.outputs.image }}
+
+      - name: Test
+        run: ct install
