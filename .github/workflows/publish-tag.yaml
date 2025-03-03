@@ -46,12 +46,7 @@ jobs:
         if: ${{ github.event_name == 'pull_request' }}
         run: |
           source "$(werf ci-env github --as-file)"
-          for l in $(jq -r '.labels | to_entries | to_entries[] | "WERF_EXPORT_ADD_LABEL_\(.key)=\(.value.key)=\(.value.value)"' <<< $DOCKER_METADATA_OUTPUT_JSON); do
-            echo "export $l"
-            export $l
-          done
-
-          env
+          source <(jq -r '.labels | to_entries | to_entries[] | "export WERF_EXPORT_ADD_LABEL_\(.key)=\"\(.value.key)=\(.value.value)\""' <<< $DOCKER_METADATA_OUTPUT_JSON)
           werf build
 
         # with:
