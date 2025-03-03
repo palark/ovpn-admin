@@ -56,7 +56,6 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v6.10.0
         with:
-          context: .
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -66,7 +65,6 @@ jobs:
       - name: Push Image
         uses: docker/build-push-action@v4
         with:
-          context: .
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
