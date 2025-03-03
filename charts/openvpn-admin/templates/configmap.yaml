@@ -1,0 +1,88 @@
+{{ $openvpnNetwork := required "A valid .Values.openvpn.subnet entry required!" .Values.openvpn.subnet }}
+{{ $openvpnNetworkAddress := index (splitList "/" $openvpnNetwork) 0 }}
+{{ $openvpnNetworkNetmask := index (splitList "/" $openvpnNetwork) 1 }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: openvpn
+data:
+  openvpn.conf: |-
+    user nobody
+    group nogroup
+
+    mode server
+    tls-server
+    # dev-type tun
+    dev tun
+    proto tcp-server
+    port 1194
+    # local 127.0.0.1
+    management 127.0.0.1 8989
+
+    tun-mtu 1500
+    mssfix
+    # only udp
+    #fragment 1300
+
+    keepalive 10 60
+    client-to-client
+    persist-key
+    persist-tun
+
+    cipher AES-128-CBC
+    duplicate-cn
+
+    server {{ $openvpnNetworkAddress }} {{ $openvpnNetworkNetmask }}
+
+    topology subnet
+    push "topology subnet"
+    push "route-metric 9999"
+
+    verb 4
+
+    ifconfig-pool-persist /tmp/openvpn.ipp
+    status /tmp/openvpn.status
+
+    key-direction 0
+
+    ca /etc/openvpn/certs/pki/ca.crt
+    key /etc/openvpn/certs/pki/private/server.key
+    cert /etc/openvpn/certs/pki/issued/server.crt
+    dh /etc/openvpn/certs/pki/dh.pem
+    crl-verify /etc/openvpn/certs/pki/crl.pem
+    tls-auth /etc/openvpn/certs/pki/ta.key
+    client-config-dir /etc/openvpn/ccd
+
+  entrypoint.sh: |-
+    #!/bin/sh
+    set -x
+
+    iptables -t nat -A POSTROUTING -s {{ $openvpnNetworkAddress }}/{{ $openvpnNetworkNetmask }} ! -d {{ $openvpnNetworkAddress }}/{{ $openvpnNetworkNetmask }} -j MASQUERADE
+
+    mkdir -p /dev/net
+    if [ ! -c /dev/net/tun ]; then
+        mknod /dev/net/tun c 10 200
+    fi
+
+    wait_file() {
+      file_path="$1"
+      while true; do
+        if [ -f $file_path ]; then
+          break
+        fi
+        echo "wait $file_path"
+        sleep 2
+      done
+    }
+
+    easyrsa_path="/etc/openvpn/certs"
+
+    wait_file "$easyrsa_path/pki/ca.crt"
+    wait_file "$easyrsa_path/pki/private/server.key"
+    wait_file "$easyrsa_path/pki/issued/server.crt"
+    wait_file "$easyrsa_path/pki/ta.key"
+    wait_file "$easyrsa_path/pki/dh.pem"
+    wait_file "$easyrsa_path/pki/crl.pem"
+
+    openvpn --config /etc/openvpn/openvpn.conf

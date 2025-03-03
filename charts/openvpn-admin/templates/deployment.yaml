@@ -1,0 +1,117 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openvpn
+spec:
+  selector:
+    matchLabels:
+      app: openvpn
+  template:
+    metadata:
+      labels:
+        app: openvpn
+    spec:
+      {{- if .Values.openvpn.nodeSelector }}
+      nodeSelector:
+      {{- .Values.openvpn.nodeSelector | toYaml | indent 8 | printf "\n%s" }}
+      {{- end }}
+      {{- if .Values.openvpn.tolerations }}
+      tolerations:
+      {{- .Values.openvpn.tolerations | toYaml | indent 8 | printf "\n%s" }}
+      {{- end }}
+      terminationGracePeriodSeconds: 0
+      serviceAccountName: openvpn
+      containers:
+      - name: ovpn-admin
+        image: {{ .Values.ovpnAdmin.image }}
+        command:
+        - /bin/sh
+        - -c
+        - /app/ovpn-admin
+            --storage.backend="kubernetes.secrets"
+            --listen.host="0.0.0.0"
+            --listen.port="8000"
+            --role="master"
+            {{- if hasKey .Values.openvpn "inlet" }}
+              {{- if eq .Values.openvpn.inlet "LoadBalancer" }}
+            --ovpn.server.behindLB
+            --ovpn.service="openvpn-external"
+              {{- end }}
+            {{- end }}
+            --mgmt=main="127.0.0.1:8989"
+            --ccd --ccd.path="/mnt/ccd"
+            --easyrsa.path="/mnt/certs"
+            {{- $externalHost := "" }}
+            {{- if hasKey .Values.openvpn "inlet" }}
+              {{- if eq .Values.openvpn.inlet "ExternalIP" }}{{ $externalHost = .Values.openvpn.externalIP }}{{- end }}
+            {{- end }}
+            {{- if hasKey .Values.openvpn "externalHost" }}{{ $externalHost = .Values.openvpn.externalHost }}{{- end }}
+            {{- if ne $externalHost "" }}
+            --ovpn.server="{{ $externalHost }}:{{ .Values.openvpn.externalPort | default 5416 | quote }}:tcp"
+            {{- end }}
+        ports:
+        - name: ovpn-admin
+          protocol: TCP
+          containerPort: 8000
+        volumeMounts:
+          - name: certs
+            mountPath: /mnt/certs
+          - name: ccd
+            mountPath: /mnt/ccd
+      - name: openvpn
+        image: {{ .Values.openvpn.image }}
+        command: [ '/entrypoint.sh' ]
+        # imagePullPolicy: Always
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            add:
+            - NET_ADMIN
+            - NET_RAW
+            - MKNOD
+            - SETGID
+            - SETUID
+            drop:
+            - ALL
+        ports:
+        - name: openvpn-tcp
+          protocol: TCP
+          containerPort: 1194
+          {{- if eq .Values.openvpn.inlet "HostPort" }}
+          hostPort: {{ .Values.openvpn.hostPort }}
+          {{- end }}
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: dev-net
+          mountPath: /dev/net
+        - name: certs
+          mountPath: /etc/openvpn/certs
+        - name: ccd
+          mountPath: /etc/openvpn/ccd
+        - name: config
+          mountPath: /etc/openvpn/openvpn.conf
+          subPath: openvpn.conf
+          readOnly: true
+        - name: entrypoint
+          mountPath: /entrypoint.sh
+          subPath: entrypoint.sh
+          readOnly: true
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: dev-net
+        emptyDir: {}
+      - name: certs
+        emptyDir: {}
+      - name: ccd
+        emptyDir: {}
+      - name: config
+        configMap:
+          name: openvpn
+          defaultMode: 0644
+      - name: entrypoint
+        configMap:
+          name: openvpn
+          defaultMode: 0755
