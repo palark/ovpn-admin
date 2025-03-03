@@ -12,13 +12,13 @@ spec:
       labels:
         app: openvpn
     spec:
-      {{- if .Values.openvpn.nodeSelector }}
+      {{- if .Values.nodeSelector }}
       nodeSelector:
-      {{- .Values.openvpn.nodeSelector | toYaml | indent 8 | printf "\n%s" }}
+      {{- .Values.nodeSelector | toYaml | indent 8 | printf "\n%s" }}
       {{- end }}
-      {{- if .Values.openvpn.tolerations }}
+      {{- if .Values.tolerations }}
       tolerations:
-      {{- .Values.openvpn.tolerations | toYaml | indent 8 | printf "\n%s" }}
+      {{- .Values.tolerations | toYaml | indent 8 | printf "\n%s" }}
       {{- end }}
       terminationGracePeriodSeconds: 0
       serviceAccountName: openvpn

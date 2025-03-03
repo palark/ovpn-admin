@@ -7,13 +7,7 @@ ovpnAdmin:
 openvpn:
   image: changeme
   subnet: 172.16.200.0/255.255.255.0
-  # nodeSelector:
-  #   node-role.kubernetes.io/master: ""
-  # tolerations:
-  # - effect: NoSchedule
-  #   key: node-role.kubernetes.io/master
-  #
-  # // LoadBalancer or ExternalIP or HostPort
+  # LoadBalancer or ExternalIP or HostPort
   inlet: HostPort
   #
   # If inlet: ExternalIP
@@ -24,3 +18,22 @@ openvpn:
   hostPort: 1194
   # Domain or ip for connect to OpenVPN server
   # externalHost: 1.2.3.4
+
+# -- [Node selector](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector) configuration.
+nodeSelector: {}
+
+# -- [Tolerations](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/) for node taints.
+# See the [API reference](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#scheduling) for details.
+tolerations: []
+
+ingress:
+  # -- Enable [ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/).
+  enabled: false
+
+  # -- Ingress [class name](https://kubernetes.io/docs/concepts/services-networking/ingress/#ingress-class).
+  className: ""
+
+  # -- Annotations to be added to the ingress.
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
