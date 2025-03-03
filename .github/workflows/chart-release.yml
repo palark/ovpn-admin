@@ -5,7 +5,7 @@ on:
     branches:
     - master
     paths:
-    - 'helm/**'
+    - 'charts/**'
 
 jobs:
   chart-release:
