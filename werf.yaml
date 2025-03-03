@@ -1,10 +1,10 @@
 project: ovpn-admin
 configVersion: 1
-
 ---
 image: ovpn-admin
-dockerfile: Dockerfile
-
+dockerfile: Dockerfile.ovpn-admin
+context: .
 ---
 image: openvpn
 dockerfile: Dockerfile.openvpn
+context: .

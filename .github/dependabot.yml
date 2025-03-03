@@ -12,7 +12,7 @@ updates:
     schedule:
       interval: "weekly"
 
-  # Dependencies listed in Dockerfile
+  # Dependencies listed in Dockerfile.ovpn-admin
   - package-ecosystem: "docker"
     directory: "/"
     schedule:

@@ -24,12 +24,12 @@ jobs:
         with:
           tags: flant/ovpn-admin:openvpn-latest
           platforms: linux/amd64,linux/arm64,linux/arm
-          file:  Dockerfile.openvpn
+          file: Dockerfile.ovpn-admin
           push: true
       - name: Push ovpn-admin image to Docker Hub
         uses: docker/build-push-action@v4
         with:
           tags: flant/ovpn-admin:latest
           platforms: linux/amd64,linux/arm64,linux/arm
-          file: Dockerfile
+          file: Dockerfile.openvpn
           push: true

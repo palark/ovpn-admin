@@ -1,4 +1,4 @@
-name: Build and publish tags to Docker Hub (tags only)
+name: Build and publish tags to ghcr.io
 on:
   push:
     tags:
@@ -8,32 +8,65 @@ jobs:
   build:
     name: build images for tag
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - dockerfile: ./Dockerfile.ovpn-admin
+          image: ovpn-admin
+        - dockerfile: ./Dockerfile.openvpn
+          image: openvpn
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
+
       - name: Get the version
         id: get_version
         run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
-      - name: Login to Docker Hub
-        uses: docker/login-action@v2
+
+      # Login against a Docker registry except on PR
+      # https://github.com/docker/login-action
+      - name: Log into registry ${{ env.REGISTRY }}
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3.3.0
         with:
-          username: ${{ secrets.DOCKER_USER }}
-          password: ${{ secrets.DOCKER_PASS }}
-      - name: Push openvpn image to Docker Hub
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.DECKHOUSE_REGISTRY_USER }}
+          password: ${{ secrets.DECKHOUSE_REGISTRY_PASSWORD }}
+
+      # Extract metadata (tags, labels) for Docker
+      # https://github.com/docker/metadata-action
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5.6.1
+        with:
+          images: ghcr.io/${{ github.repository }}/${{ matrix.image }}
+
+      # Build and push Docker image with Buildx (don't push on PR)
+      # https://github.com/docker/build-push-action
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6.10.0
+        with:
+          context: .
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            TAG=${{ github.ref_name }}
+
+      - name: Push Image
         uses: docker/build-push-action@v4
         with:
-          tags: flant/ovpn-admin:openvpn-${{ steps.get_version.outputs.VERSION }}
+          context: .
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            TAG=${{ github.ref_name }}
           platforms: linux/amd64,linux/arm64,linux/arm
-          file: Dockerfile.openvpn
-          push: true
-      - name: Push ovpn-admin image to Docker Hub
-        uses: docker/build-push-action@v4
-        with:
-          tags: flant/ovpn-admin:${{ steps.get_version.outputs.VERSION }}
-          platforms: linux/amd64,linux/arm64,linux/arm
-          file: Dockerfile
-          push: true
+          file: ${{ matrix.dockerfile }}
