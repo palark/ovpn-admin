@@ -44,14 +44,16 @@ jobs:
       # Build and push Docker image with Buildx (don't push on PR)
       # https://github.com/docker/build-push-action
       - name: Build Image
+        if: ${{ github.event_name == 'pull_request' }}
         run: |
           . <(echo "$DOCKER_METADATA_OUTPUT_LABELS" | awk '{print "export WERF_EXPORT_ADD_LABEL_" NR "=" $0}')
           werf build
-        with:
-          push: ${{ github.event_name == 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            TAG=${{ github.ref_name }}
-          platforms: linux/amd64,linux/arm64,linux/arm
-          file: ./Dockerfile.${{ matrix.name }}
+
+        # with:
+        #   push: ${{ github.event_name == 'pull_request' }}
+        #   tags: ${{ steps.meta.outputs.tags }}
+        #   labels: ${{ steps.meta.outputs.labels }}
+        #   build-args: |
+        #     TAG=${{ github.ref_name }}
+        #   platforms: linux/amd64,linux/arm64,linux/arm
+        #   file: ./Dockerfile.${{ matrix.name }}
