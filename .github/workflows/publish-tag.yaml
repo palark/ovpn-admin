@@ -36,7 +36,6 @@ jobs:
       # Extract metadata (tags, labels) for Docker
       # https://github.com/docker/metadata-action
       - name: Extract Docker metadata
-        id: meta
         uses: docker/metadata-action@v5.6.1
         with:
           images: ghcr.io/${{ github.repository }}/${{ matrix.name }}
@@ -47,7 +46,7 @@ jobs:
         if: ${{ github.event_name == 'pull_request' }}
         run: |
           source "$(werf ci-env github --as-file)"
-          source <(echo "$DOCKER_METADATA_OUTPUT_LABELS" | awk '{print "export WERF_EXPORT_ADD_LABEL_" NR "=" $0}')
+          source <(jq -r '.labels | to_entries | to_entries[] | "WERF_EXPORT_ADD_LABEL_\(.key)=\(.value.key)=\(.value.value)"' <<< $DOCKER_METADATA_OUTPUT_JSON)
           werf build
 
         # with:
