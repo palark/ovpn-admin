@@ -1,3 +1,5 @@
+bin/
+
 easyrsa
 easyrsa_master
 easyrsa_slave
