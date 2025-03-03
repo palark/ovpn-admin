@@ -35,17 +35,18 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}/${{ matrix.name }}
 
-      - name: Export werf variables
+      - name: Build Image
+        if: ${{ github.event_name == 'pull_request' }}
         run: |
           source "$(werf ci-env github --as-file)"
           source <(jq -r '.labels | to_entries | to_entries[] | "export WERF_EXPORT_ADD_LABEL_\(.key)=\"\(.value.key)=\(.value.value)\""' <<< $DOCKER_METADATA_OUTPUT_JSON)
 
-      - name: Build Image
-        if: ${{ github.event_name == 'pull_request' }}
-        run: |
           werf build
 
       - name: Build and Push Image
         if: ${{ github.event_name != 'pull_request' }}
         run: |
+          source "$(werf ci-env github --as-file)"
+          source <(jq -r '.labels | to_entries | to_entries[] | "export WERF_EXPORT_ADD_LABEL_\(.key)=\"\(.value.key)=\(.value.value)\""' <<< $DOCKER_METADATA_OUTPUT_JSON)
+
           werf export --tag ghcr.io/${{ github.repository }}/%image%:${{ github.ref_name }}
