@@ -46,7 +46,8 @@ jobs:
       - name: Build Image
         if: ${{ github.event_name == 'pull_request' }}
         run: |
-          . <(echo "$DOCKER_METADATA_OUTPUT_LABELS" | awk '{print "export WERF_EXPORT_ADD_LABEL_" NR "=" $0}')
+          source "$(werf ci-env github --as-file)"
+          source <(echo "$DOCKER_METADATA_OUTPUT_LABELS" | awk '{print "export WERF_EXPORT_ADD_LABEL_" NR "=" $0}')
           werf build
 
         # with:
