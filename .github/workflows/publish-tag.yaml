@@ -11,7 +11,7 @@ on:
 
 env:
   WERF_STAGED_DOCKERFILE_VERSION: v2
-  WERF_BUILDAH_MODE: auto
+  # WERF_BUILDAH_MODE: auto
 
 jobs:
   build:
