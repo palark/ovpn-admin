@@ -132,11 +132,11 @@ func genServerCert(privKey, caPrivKey *rsa.PrivateKey, ca *x509.Certificate, cn 
 // return PEM encoded certificate
 func genClientCert(privKey, caPrivKey *rsa.PrivateKey, ca *x509.Certificate, cn string) (issuerPEM *bytes.Buffer, err error) {
 	serialNumberRange := new(big.Int).Lsh(big.NewInt(1), 128)
-	serial, _ := rand.Int(rand.Reader, serialNumberRange)
+	serial, err := rand.Int(rand.Reader, serialNumberRange)
 
 	certLifetimeDays, err := strconv.Atoi(*clientCertExpirationDays)
 	if err != nil {
-		return nil, fmt.Errorf("can't get cert expired value: %w", err)
+		return nil, fmt.Errorf("can't get client certificate expiration value: %w", err)
 	}
 
 	notBefore := time.Now()
