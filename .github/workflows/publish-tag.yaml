@@ -41,7 +41,7 @@ jobs:
           source "$(werf ci-env github --as-file)"
           source <(jq -r '.labels | to_entries | to_entries[] | "export WERF_EXPORT_ADD_LABEL_\(.key)=\"\(.value.key)=\(.value.value)\""' <<< $DOCKER_METADATA_OUTPUT_JSON)
 
-          werf build
+          werf build --repo='' --final-repo=''
 
       - name: Build and Push Image
         if: ${{ github.event_name != 'pull_request' }}
