@@ -4,7 +4,7 @@ build:
   platform:
   - linux/amd64
   - linux/arm64
-  staged: true
+  staged: false
 ---
 image: ovpn-admin
 dockerfile: Dockerfile.ovpn-admin
