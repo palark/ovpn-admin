@@ -11,12 +11,12 @@ on:
 
 env:
   WERF_STAGED_DOCKERFILE_VERSION: v2
-  # WERF_BUILDAH_MODE: auto
+  WERF_BUILDAH_MODE: auto
 
 jobs:
   build:
     name: build images for tag
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout code
