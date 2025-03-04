@@ -3,7 +3,7 @@ configVersion: 1
 build:
   platform:
   - linux/amd64
-  - linux/arm64
+  # - linux/arm64
   staged: true
 ---
 image: ovpn-admin
