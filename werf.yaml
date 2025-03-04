@@ -3,8 +3,11 @@ configVersion: 1
 build:
   platform:
   - linux/amd64
-  # TODO(nabokihms): build multiplatform images only for the master branch
-  # - linux/arm64
+  {{- if eq .Values.werf.env "release" }}
+  - linux/arm64
+  - linux/arm/v7
+  - linux/arm/v8
+  {{- end }}
   staged: true
 ---
 image: ovpn-admin

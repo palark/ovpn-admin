@@ -12,6 +12,7 @@ on:
 env:
   WERF_STAGED_DOCKERFILE_VERSION: v2
   WERF_BUILDAH_MODE: auto
+  WERF_ENV: ${{ github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/') && 'release' || '' }}
 
 jobs:
   build:
