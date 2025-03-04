@@ -61,7 +61,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        kube: ["1.24", "1.25", "1.32"]
+        kube: ["1.25", "1.29", "1.31"]
 
     steps:
       - name: Checkout
@@ -87,11 +87,11 @@ jobs:
         id: node_image
         run: |
           case ${{ matrix.kube }} in
-            1.24)
-              NODE_IMAGE=kindest/node:v1.24.7@sha256:577c630ce8e509131eab1aea12c022190978dd2f745aac5eb1fe65c0807eb315 ;;
             1.25)
               NODE_IMAGE=kindest/node:v1.25.3@sha256:f52781bc0d7a19fb6c405c2af83abfeb311f130707a0e219175677e366cc45d1 ;;
-            1.32)
+            1.29)
+              NODE_IMAGE=kindest/node:v1.29.12@sha256:62c0672ba99a4afd7396512848d6fc382906b8f33349ae68fb1dbfe549f70dec ;;
+            1.31)
               NODE_IMAGE=kindest/node:v1.31.2@sha256:0526eb5cd8d892ed79b56feb48d17eeee1f719f55d5c35cef468f053caffad32 ;;
             esac
 
