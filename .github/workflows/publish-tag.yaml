@@ -24,7 +24,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: werf/actions/install@v2
+      - name: Install werf
+        uses: werf/actions/install@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
 
       - name: Login into ghcr.io
         shell: bash
