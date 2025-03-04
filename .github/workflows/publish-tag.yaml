@@ -24,7 +24,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: werf/actions/install@v1.2
+      - uses: werf/actions/install@v2
 
       - name: Login into ghcr.io
         shell: bash

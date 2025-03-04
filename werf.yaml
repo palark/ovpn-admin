@@ -1,5 +1,8 @@
 project: ovpn-admin
 configVersion: 1
+build:
+  platform: ['linux/amd64','linux/arm64','linux/arm','linux/386']
+  staged: true
 ---
 image: ovpn-admin
 dockerfile: Dockerfile.ovpn-admin
