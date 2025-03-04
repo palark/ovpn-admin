@@ -34,7 +34,7 @@ jobs:
           python-version: "3.10"
 
       - name: Set up chart-testing
-        uses: helm/chart-testing-action@v2.6.1
+        uses: helm/chart-testing-action@v2.7.0
 
       - name: Lint
         run: ct lint
@@ -80,7 +80,7 @@ jobs:
           python-version: "3.10"
 
       - name: Set up chart-testing
-        uses: helm/chart-testing-action@v2.6.1
+        uses: helm/chart-testing-action@v2.7.0
 
       # See https://github.com/kubernetes-sigs/kind/releases/tag/v0.17.0
       - name: Determine KinD node image version
