@@ -1,11 +1,11 @@
 domain: changeme
 ovpnAdmin:
-  image: changeme
+  repo: ghcr.io/palark/ovpn-admin/ovpn-admin
   basicAuth:
     user: admin
     password: changeme
 openvpn:
-  repo: ghcr.io/palark/ovpn-admin
+  repo: ghcr.io/palark/ovpn-admin/openvpn
   subnet: 172.16.200.0/255.255.255.0
   # LoadBalancer or ExternalIP or HostPort
   inlet: HostPort

@@ -23,10 +23,10 @@ Kubernetes: `>=1.14.0-0`
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | domain | string | `"changeme"` |  |
-| ovpnAdmin.image | string | `"changeme"` |  |
+| ovpnAdmin.repo | string | `"ghcr.io/palark/ovpn-admin/ovpn-admin"` |  |
 | ovpnAdmin.basicAuth.user | string | `"admin"` |  |
 | ovpnAdmin.basicAuth.password | string | `"changeme"` |  |
-| openvpn.repo | string | `"ghcr.io/palark/ovpn-admin"` |  |
+| openvpn.repo | string | `"ghcr.io/palark/ovpn-admin/openvpn"` |  |
 | openvpn.subnet | string | `"172.16.200.0/255.255.255.0"` |  |
 | openvpn.inlet | string | `"HostPort"` |  |
 | openvpn.hostPort | int | `1194` |  |

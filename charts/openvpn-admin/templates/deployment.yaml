@@ -24,7 +24,7 @@ spec:
       serviceAccountName: openvpn
       containers:
       - name: ovpn-admin
-        image: {{ .Values.ovpnAdmin.repo }}/ovpn-admin:master
+        image: {{ .Values.ovpnAdmin.repo }}:master
         command:
         - /bin/sh
         - -c
@@ -60,7 +60,7 @@ spec:
           - name: ccd
             mountPath: /mnt/ccd
       - name: openvpn
-        image: {{ .Values.ovpnAdmin.repo }}/openvpn:master
+        image: {{ .Values.ovpnAdmin.repo }}:master
         command: [ '/entrypoint.sh' ]
         # imagePullPolicy: Always
         securityContext:
