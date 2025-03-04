@@ -20,7 +20,7 @@ jobs:
         uses: wangyoucao577/go-release-action@v1.53
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          goversion: 1.17
+          goversion: 1.23
           goos: ${{ matrix.goos }}
           goarch: ${{ matrix.goarch }}
           build_command: bash -ex ./build.sh

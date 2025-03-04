@@ -1,6 +1,6 @@
 module ovpn-admin
 
-go 1.17
+go 1.23
 
 require (
 	github.com/gobuffalo/packr/v2 v2.8.3

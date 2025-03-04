@@ -17,10 +17,10 @@ spec:
   {{- end }}
   tls:
   - hosts:
-    - {{ .Values.domain }}
+    - {{ .Values.ingress.domain }}
     secretName: ingress-tls
   rules:
-  - host: {{ .Values.domain }}
+  - host: {{ .Values.ingress.domain }}
     http:
       paths:
       - path: /

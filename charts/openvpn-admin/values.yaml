@@ -1,9 +1,6 @@
-domain: changeme
 ovpnAdmin:
   repo: ghcr.io/palark/ovpn-admin/ovpn-admin
-  basicAuth:
-    user: admin
-    password: changeme
+
 openvpn:
   repo: ghcr.io/palark/ovpn-admin/openvpn
   subnet: 172.16.200.0/255.255.255.0
@@ -37,3 +34,9 @@ ingress:
   annotations: {}
     # kubernetes.io/ingress.class: nginx
     # kubernetes.io/tls-acme: "true"
+
+  domain: changeme
+
+  basicAuth:
+    user: admin
+    password: changeme
