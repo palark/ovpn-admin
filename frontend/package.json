@@ -10,7 +10,7 @@
     "build": "cross-env NODE_ENV=production webpack --progress"
   },
   "dependencies": {
-    "axios": "^0.28.0",
+    "axios": "^1.8.2",
     "bootstrap-vue": "^2.22.0",
     "normalize.css": "^8.0.1",
     "vue": "^2.6.14",
