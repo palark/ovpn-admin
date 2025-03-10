@@ -2,7 +2,7 @@ FROM node:16-alpine3.15 AS frontend-builder
 COPY ../frontend /app
 RUN apk add --update python3 make g++ && cd /app && npm install && npm run build
 
-FROM golang:1.23.6-bullseye AS backend-builder
+FROM golang:1.24.1-bullseye AS backend-builder
 RUN go install github.com/gobuffalo/packr/v2/packr2@latest
 COPY --from=frontend-builder /app/static /app/frontend/static
 COPY .. /app
