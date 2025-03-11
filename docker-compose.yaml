@@ -22,6 +22,7 @@ services:
   ovpn-admin:
     build:
       context: .
+      dockerfile: Dockerfile.ovpn-admin
     image: ovpn-admin:local
     command: /app/ovpn-admin
     environment:
