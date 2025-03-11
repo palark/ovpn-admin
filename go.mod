@@ -4,7 +4,7 @@ go 1.23
 
 require (
 	github.com/gobuffalo/packr/v2 v2.8.3
-	github.com/google/uuid v1.3.0
+	github.com/google/uuid v1.6.0
 	github.com/prometheus/client_golang v1.21.1
 	github.com/sirupsen/logrus v1.8.1
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
