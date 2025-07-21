@@ -32,7 +32,7 @@ const (
 	privKeyFileName  = "tls.key"
 )
 
-//<year><month><day><hour><minute><second>Z
+// <year><month><day><hour><minute><second>Z
 const indexTxtDateFormat = "060102150405Z"
 
 var namespace = "default"
@@ -470,6 +470,11 @@ func (openVPNPKI *OpenVPNPKI) easyrsaRotate(commonName, newPassword string) (err
 		return
 	}
 
+	err = openVPNPKI.transferRoutes(secret, commonName)
+	if err != nil {
+		return
+	}
+
 	err = openVPNPKI.indexTxtUpdate()
 	if err != nil {
 		return
@@ -773,4 +778,17 @@ func (openVPNPKI *OpenVPNPKI) secretCheckExists(name string) (bool, string) {
 		return false, ""
 	}
 	return true, secret.ResourceVersion
+}
+
+// transferRoutes transfers configured routes from revoked certs to a new one
+func (openVPNPKI *OpenVPNPKI) transferRoutes(revokedSecret *v1.Secret, newNameCert string) error {
+	ccd, ok := revokedSecret.Data["ccd"]
+	if !ok || len(ccd) == 0 {
+		log.Infof("No CCD data found in secret %s", revokedSecret.Name)
+		return nil
+	}
+
+	openVPNPKI.secretUpdateCcd(newNameCert, ccd)
+
+	return nil
 }
