@@ -329,10 +329,10 @@ func (openVPNPKI *OpenVPNPKI) easyrsaBuildClient(commonName string) (err error) 
 	secretMetaData := metav1.ObjectMeta{
 		Name: fmt.Sprintf(secretClientTmpl, clientCert.SerialNumber),
 		Labels: map[string]string{
-			"index.txt":                    "",
-			"type":                         "clientAuth",
-			"name":                         commonName,
-			"app.kubernetes.io/managed-by": "ovpn-admin",
+			labelKeyIndexTxt:  "",
+			labelKeyType:      labelValueClientAuth,
+			labelKeyName:      commonName,
+			labelKeyManagedBy: labelValueManagedByApp,
 		},
 		Annotations: map[string]string{
 			"commonName":   commonName,

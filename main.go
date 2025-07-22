@@ -35,14 +35,21 @@ import (
 )
 
 const (
-	usernameRegexp       = `^([a-zA-Z0-9_.\-@])+$`
-	passwordMinLength    = 6
-	certsArchiveFileName = "certs.tar.gz"
-	ccdArchiveFileName   = "ccd.tar.gz"
-	indexTxtDateLayout   = "060102150405Z"
-	stringDateFormat     = "2006-01-02 15:04:05"
-	downloadCertsApiUrl  = "api/data/certs/download"
-	downloadCcdApiUrl    = "api/data/ccd/download"
+	usernameRegexp         = `^([a-zA-Z0-9_.\-@])+$`
+	passwordMinLength      = 6
+	certsArchiveFileName   = "certs.tar.gz"
+	ccdArchiveFileName     = "ccd.tar.gz"
+	indexTxtDateLayout     = "060102150405Z"
+	stringDateFormat       = "2006-01-02 15:04:05"
+	downloadCertsApiUrl    = "api/data/certs/download"
+	downloadCcdApiUrl      = "api/data/ccd/download"
+	labelKeyIndexTxt       = "index.txt"
+	labelKeyType           = "type"
+	labelKeyName           = "name"
+	labelKeyManagedBy      = "app.kubernetes.io/managed-by"
+	labelValueClientAuth   = "clientAuth"
+	labelValueManagedByApp = "ovpn-admin"
+	prefixStaticRoute      = "ifconfig-push"
 
 	kubeNamespaceFilePath = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
 )
@@ -861,11 +868,53 @@ func (oAdmin *OvpnAdmin) getCcd(username string) Ccd {
 }
 
 func checkStaticAddressIsFree(staticAddress string, username string) bool {
+
+	if *storageBackend == "kubernetes.secrets" {
+
+		log.Infof("Static address: %s", staticAddress)
+
+		labelSelector := fmt.Sprintf("%s=%s,%s=%s",
+			labelKeyType, labelValueClientAuth,
+			labelKeyManagedBy, labelValueManagedByApp)
+
+		secrets, err := app.secretsGetByLabels(labelSelector)
+		if err != nil {
+			log.Error(err)
+		}
+
+		for _, secret := range secrets.Items {
+			otherUser := secret.Labels["name"]
+			if otherUser == username {
+				continue
+			}
+
+			dataCCD, ok := secret.Data["ccd"]
+			if !ok {
+				continue
+			}
+
+			lines := strings.Split(string(dataCCD), "\n")
+
+			for _, line := range lines {
+				if strings.HasPrefix(line, prefixStaticRoute) {
+					fields := strings.Fields(line)
+					if len(fields) >= 2 && fields[1] == staticAddress {
+						log.Warnf("IP %s already assigned to user %s", staticAddress, otherUser)
+						return false
+					}
+				}
+			}
+		}
+
+		return true
+	}
+
 	o := runBash(fmt.Sprintf("grep -rl ' %[1]s ' %[2]s | grep -vx %[2]s/%[3]s | wc -l", staticAddress, *ccdDir, username))
 
 	if strings.TrimSpace(o) == "0" {
 		return true
 	}
+
 	return false
 }
 
