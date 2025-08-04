@@ -38,7 +38,7 @@ jobs:
         run: werf cr login -u ${{ github.actor }} -p ${{ github.token }} ghcr.io/${{ github.repository }}
 
       - name: Extract Docker metadata
-        uses: docker/metadata-action@v5.7.0
+        uses: docker/metadata-action@v5.8.0
         with:
           images: ghcr.io/${{ github.repository }}/${{ matrix.name }}
 
