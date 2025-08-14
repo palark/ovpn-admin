@@ -288,6 +288,17 @@ func extractFromArchive(archive, path string) error {
 				log.Fatalf("extractFromArchive: Mkdir() failed: %s", err.Error())
 			}
 		case tar.TypeReg:
+			s := strings.Split(header.Name, "/")
+			dir := ""
+
+			for len(s) > 1 {
+				dir, s = dir+"/"+s[0], s[1:]
+				if _, err := os.Stat(path + dir); os.IsNotExist(err) {
+					if err := os.Mkdir(path+dir, 0755); err != nil {
+						log.Fatalf("extractFromArchive: Mkdir() subdir failed: %s", err.Error())
+					}
+				}
+			}
 			outFile, err := os.Create(path + "/" + header.Name)
 			if err != nil {
 				log.Fatalf("extractFromArchive: Create() failed: %s", err.Error())
