@@ -4,9 +4,8 @@ set -ex
 EASY_RSA_LOC="/etc/openvpn/easyrsa"
 SERVER_CERT="${EASY_RSA_LOC}/pki/issued/server.crt"
 
-OVPN_SRV_NET=${OVPN_SERVER_NET:-172.16.100.0}
+OVPN_SRV_NET=${OVPN_SERVER_NET:-10.8.0.0}
 OVPN_SRV_MASK=${OVPN_SERVER_MASK:-255.255.255.0}
-
 
 cd $EASY_RSA_LOC
 
@@ -34,12 +33,20 @@ easyrsa gen-crl
 iptables -t nat -D POSTROUTING -s ${OVPN_SRV_NET}/${OVPN_SRV_MASK} ! -d ${OVPN_SRV_NET}/${OVPN_SRV_MASK} -j MASQUERADE || true
 iptables -t nat -A POSTROUTING -s ${OVPN_SRV_NET}/${OVPN_SRV_MASK} ! -d ${OVPN_SRV_NET}/${OVPN_SRV_MASK} -j MASQUERADE
 
+# Fixed: Use environment variables instead of hardcoded values
+iptables -t nat -A POSTROUTING -s ${OVPN_SRV_NET}/${OVPN_SRV_MASK} -d 172.18.0.0/16 -j MASQUERADE
+
 mkdir -p /dev/net
 if [ ! -c /dev/net/tun ]; then
     mknod /dev/net/tun c 10 200
 fi
 
 cp -f /etc/openvpn/setup/openvpn.conf /etc/openvpn/openvpn.conf
+
+# Add custom routes if specified
+if [ ! -z "${OVPN_CUSTOM_ROUTES}" ]; then
+  echo 'push "route '${OVPN_CUSTOM_ROUTES}'"' >> /etc/openvpn/openvpn.conf
+fi
 
 if [ ${OVPN_PASSWD_AUTH} = "true" ]; then
   mkdir -p /etc/openvpn/scripts/
@@ -56,4 +63,5 @@ fi
 
 mkdir -p /etc/openvpn/ccd
 
-openvpn --config /etc/openvpn/openvpn.conf --client-config-dir /etc/openvpn/ccd --port 1194 --proto tcp --management 127.0.0.1 8989 --dev tun0 --server ${OVPN_SRV_NET} ${OVPN_SRV_MASK}
+# Fixed: Changed to UDP and use environment variables
+openvpn --config /etc/openvpn/openvpn.conf --client-config-dir /etc/openvpn/ccd --port 1194 --proto udp --management 127.0.0.1 8989 --dev tun0 --server ${OVPN_SRV_NET} ${OVPN_SRV_MASK}

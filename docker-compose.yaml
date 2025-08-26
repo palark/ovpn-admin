@@ -1,5 +1,12 @@
 version: '3'
 
+networks:
+  vpn-internal:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.18.0.0/16
+
 services:
   openvpn:
     build:
@@ -8,17 +15,23 @@ services:
     image: openvpn:local
     command: /etc/openvpn/setup/configure.sh
     environment:
-      OVPN_SERVER_NET: "192.168.100.0"
+      OVPN_SERVER_NET: "10.8.0.0"
       OVPN_SERVER_MASK: "255.255.255.0"
       OVPN_PASSWD_AUTH: "true"
+      OVPN_CUSTOM_ROUTES: "172.18.0.0 255.255.0.0"
     cap_add:
       - NET_ADMIN
+    sysctls:
+      - net.ipv4.ip_forward=1
     ports:
-      - 7777:1194 # for openvpn
+      - 7777:1194/udp # Changed to UDP for better performance
       - 8080:8080 # for ovpn-admin because of network_mode
     volumes:
       - ./easyrsa_master:/etc/openvpn/easyrsa
       - ./ccd_master:/etc/openvpn/ccd
+    networks:
+      - vpn-internal
+
   ovpn-admin:
     build:
       context: .
@@ -28,16 +41,25 @@ services:
     environment:
       OVPN_DEBUG: "true"
       OVPN_VERBOSE: "true"
-      OVPN_NETWORK: "192.168.100.0/24"
+      OVPN_NETWORK: "10.8.0.0/24"
       OVPN_CCD: "true"
       OVPN_CCD_PATH: "/mnt/ccd"
       EASYRSA_PATH: "/mnt/easyrsa"
-      OVPN_SERVER: "127.0.0.1:7777:tcp"
+      OVPN_SERVER: "13.127.115.63:7777:udp" # Changed to UDP
       OVPN_INDEX_PATH: "/mnt/easyrsa/pki/index.txt"
       OVPN_AUTH: "true"
+      OVPN_CIPHER: "AES-256-GCM"
       OVPN_AUTH_DB_PATH: "/mnt/easyrsa/pki/users.db"
       LOG_LEVEL: "debug"
     network_mode: service:openvpn
     volumes:
       - ./easyrsa_master:/mnt/easyrsa
       - ./ccd_master:/mnt/ccd
+
+  nginx:
+    image: nginx:alpine
+    container_name: vpn-nginx
+    networks:
+      vpn-internal:
+        ipv4_address: 172.18.0.10
+    restart: unless-stopped
