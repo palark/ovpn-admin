@@ -1,4 +1,4 @@
-FROM alpine:3.22
+FROM alpine:3.23
 ARG TARGETARCH
 RUN apk add --update bash openvpn easy-rsa iptables  && \
     ln -s /usr/share/easy-rsa/easyrsa /usr/local/bin && \
