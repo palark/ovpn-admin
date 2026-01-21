@@ -15,7 +15,7 @@ if [ -e "$SERVER_CERT" ]; then
 else
   if [ ${OVPN_ROLE:-"master"} = "slave" ]; then
     echo "Waiting for initial sync data from master"
-    while [ $(wget -q localhost/api/sync/last/try -O - | wc -m) -lt 1 ]
+    while [ $(wget -q localhost:${OVPN_LISTEN_PORT:-8080}/api/sync/last/try -O - | wc -m) -lt 1 ]
     do
       sleep 5
     done
