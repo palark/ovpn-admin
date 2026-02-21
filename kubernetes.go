@@ -230,6 +230,16 @@ func (openVPNPKI *OpenVPNPKI) indexTxtUpdate() (err error) {
 
 		log.Trace(cert.Subject.CommonName)
 
+		// Fix for old secrets, added label name if not exists
+		labelName := secret.Labels["name"]
+		if labelName == "" {
+			secret.Labels["name"] = cert.Subject.CommonName
+			_, err = openVPNPKI.KubeClient.CoreV1().Secrets(namespace).Update(context.TODO(), &secret, metav1.UpdateOptions{})
+			if err != nil {
+				return nil
+			}
+		}
+
 		if secret.Annotations["revokedAt"] == "" {
 			indexTxt += fmt.Sprintf("%s\t%s\t\t%s\t%s\t%s\n", "V", cert.NotAfter.Format(indexTxtDateFormat), fmt.Sprintf("%d", cert.SerialNumber), "unknown", "/CN="+secret.Labels["name"])
 		} else if cert.NotAfter.Before(time.Now()) {
