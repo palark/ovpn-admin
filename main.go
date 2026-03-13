@@ -697,7 +697,7 @@ func (oAdmin *OvpnAdmin) renderClientConfig(username string) string {
 			hosts = append(hosts, OpenvpnServer{Host: parts[0], Port: parts[1], Protocol: parts[2]})
 		}
 
-		if *openvpnServerBehindLB {
+		if len(hosts) == 0 && *openvpnServerBehindLB {
 			var err error
 			hosts, err = getOvpnServerHostsFromKubeApi()
 			if err != nil {
