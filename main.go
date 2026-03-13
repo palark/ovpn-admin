@@ -534,6 +534,11 @@ func main() {
 		ovpnAdmin.mgmtInterfaces[parts[0]] = parts[len(parts)-1]
 	}
 
+	if ovpnAdmin.role == "slave" {
+		ovpnAdmin.syncDataFromMaster()
+		go ovpnAdmin.syncWithMaster()
+	}
+
 	ovpnAdmin.mgmtSetTimeFormat()
 
 	ovpnAdmin.registerMetrics()
@@ -559,11 +564,6 @@ func main() {
 
 	if *ccdEnabled {
 		ovpnAdmin.modules = append(ovpnAdmin.modules, "ccd")
-	}
-
-	if ovpnAdmin.role == "slave" {
-		ovpnAdmin.syncDataFromMaster()
-		go ovpnAdmin.syncWithMaster()
 	}
 
 	ovpnAdmin.templates = packr.New("template", "./templates")
