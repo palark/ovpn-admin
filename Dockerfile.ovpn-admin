@@ -3,11 +3,10 @@ COPY ../frontend /app
 RUN apk add --update python3 make g++ && cd /app && npm install && npm run build
 
 FROM golang:1.24.6-bullseye AS backend-builder
-RUN go install github.com/gobuffalo/packr/v2/packr2@latest
 COPY --from=frontend-builder /app/static /app/frontend/static
 COPY .. /app
 ARG TARGETARCH
-RUN cd /app && packr2 && env CGO_ENABLED=1 GOOS=linux GOARCH=${TARGETARCH} go build -a -tags netgo -ldflags '-linkmode external -extldflags -static -s -w' -o ovpn-admin && packr2 clean
+RUN cd /app && env CGO_ENABLED=1 GOOS=linux GOARCH=${TARGETARCH} go build -a -tags netgo -ldflags '-linkmode external -extldflags -static -s -w' -o ovpn-admin
 
 FROM alpine:3.23
 WORKDIR /app
