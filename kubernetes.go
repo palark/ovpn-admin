@@ -232,8 +232,6 @@ func (openVPNPKI *OpenVPNPKI) indexTxtUpdate() (err error) {
 
 		if secret.Annotations["revokedAt"] == "" {
 			indexTxt += fmt.Sprintf("%s\t%s\t\t%s\t%s\t%s\n", "V", cert.NotAfter.Format(indexTxtDateFormat), fmt.Sprintf("%d", cert.SerialNumber), "unknown", "/CN="+secret.Labels["name"])
-		} else if cert.NotAfter.Before(time.Now()) {
-			indexTxt += fmt.Sprintf("%s\t%s\t\t%s\t%s\t%s\n", "E", cert.NotAfter.Format(indexTxtDateFormat), fmt.Sprintf("%d", cert.SerialNumber), "unknown", "/CN="+secret.Labels["name"])
 		} else {
 			indexTxt += fmt.Sprintf("%s\t%s\t%s\t%s\t%s\t%s\n", "R", cert.NotAfter.Format(indexTxtDateFormat), secret.Annotations["revokedAt"], fmt.Sprintf("%d", cert.SerialNumber), "unknown", "/CN="+secret.Labels["name"])
 		}
