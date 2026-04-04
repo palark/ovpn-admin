@@ -1,4 +1,5 @@
 bin/
+ovpn-admin
 
 easyrsa
 easyrsa_master

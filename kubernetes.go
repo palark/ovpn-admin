@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"sort"
 	"strings"
 	"time"
 
@@ -218,6 +219,10 @@ func (openVPNPKI *OpenVPNPKI) indexTxtUpdate() (err error) {
 	if err != nil {
 		return
 	}
+
+	sort.Slice(secrets.Items, func(i, j int) bool {
+		return secrets.Items[i].CreationTimestamp.Before(&secrets.Items[j].CreationTimestamp)
+	})
 
 	var indexTxt string
 	for _, secret := range secrets.Items {
