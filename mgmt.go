@@ -257,14 +257,9 @@ scan:
 		// iroute entries (networks behind a client) are printed as network/bits;
 		// cached host routes to such networks get the "C" flag appended ("10.20.0.5C",
 		// "fd00:1::5C" - addresses are printed in lower case, so "C" is always the flag)
-		if strings.Contains(route.virtualAddress, "/") || strings.HasSuffix(route.virtualAddress, "C") {
+		if route.virtualAddress == "" || strings.Contains(route.virtualAddress, "/") || strings.HasSuffix(route.virtualAddress, "C") {
 			continue
 		}
-		vaddr, err := netip.ParseAddr(route.virtualAddress)
-		if err != nil {
-			continue
-		}
-		vaddr = vaddr.Unmap()
 
 		i := matchMgmtSession(sessions, route.commonName, route.realAddress)
 		if i < 0 {
@@ -276,6 +271,18 @@ scan:
 			s.lastRefUnix = route.lastRef
 			s.LastRef = formatMgmtTime(route.lastRef, route.lastRefRaw)
 		}
+
+		vaddr, err := netip.ParseAddr(route.virtualAddress)
+		if err != nil {
+			// dev tap: the routing table holds MAC addresses ("02:00:5e:10:00:01"); the MAC is
+			// reported only when OpenVPN knows no IP address of the client (no ifconfig-push)
+			if s.VirtualAddress == "" {
+				s.VirtualAddress = route.virtualAddress
+			}
+			continue
+		}
+		vaddr = vaddr.Unmap()
+
 		// CLIENT_LIST virtual addresses win; the routing table is a fallback for older versions
 		if vaddr.Is4() && s.VirtualAddress == "" {
 			s.VirtualAddress = vaddr.String()

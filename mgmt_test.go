@@ -69,6 +69,31 @@ func TestParseMgmtStatus26(t *testing.T) {
 
 // OpenVPN 2.4: no "Data Channel Cipher" column, ctime-like human dates; the IPv6
 // virtual address is only known from the routing table.
+// dev tap: the routing table holds MAC addresses, CLIENT_LIST has the address from
+// ifconfig-push (dave) or nothing (erin gets its address from DHCP behind the bridge).
+func TestParseMgmtStatusTap(t *testing.T) {
+	status := strings.Join([]string{
+		tsv("HEADER", "CLIENT_LIST", "Common Name", "Real Address", "Virtual Address", "Virtual IPv6 Address", "Bytes Received", "Bytes Sent", "Connected Since", "Connected Since (time_t)", "Username", "Client ID", "Peer ID", "Data Channel Cipher"),
+		tsv("CLIENT_LIST", "dave", "198.51.100.20:1194", "172.29.11.50", "", "100", "200", "2024-05-01 11:00:00", "1714561200", "UNDEF", "0", "0", "AES-256-GCM"),
+		tsv("CLIENT_LIST", "erin", "198.51.100.21:1194", "", "", "300", "400", "2024-05-01 11:10:00", "1714561800", "UNDEF", "1", "1", "AES-256-GCM"),
+		tsv("HEADER", "ROUTING_TABLE", "Virtual Address", "Common Name", "Real Address", "Last Ref", "Last Ref (time_t)"),
+		tsv("ROUTING_TABLE", "02:ab:cd:ef:00:01", "dave", "198.51.100.20:1194", "2024-05-01 11:59:00", "1714564740"),
+		tsv("ROUTING_TABLE", "02:ab:cd:ef:00:02", "erin", "198.51.100.21:1194", "2024-05-01 11:58:20", "1714564700"),
+		"END",
+	}, "\n")
+
+	got := parseMgmtStatus(status, "main")
+	if len(got) != 2 {
+		t.Fatalf("got %d sessions, want 2: %+v", len(got), got)
+	}
+	if got[0].VirtualAddress != "172.29.11.50" || got[0].LastRef != fmtTS(1714564740) {
+		t.Errorf("dave: VirtualAddress=%q LastRef=%q, want 172.29.11.50 and the Last Ref of its MAC route", got[0].VirtualAddress, got[0].LastRef)
+	}
+	if got[1].VirtualAddress != "02:ab:cd:ef:00:02" || got[1].LastRef != fmtTS(1714564700) {
+		t.Errorf("erin: VirtualAddress=%q LastRef=%q, want its MAC and the Last Ref of its MAC route", got[1].VirtualAddress, got[1].LastRef)
+	}
+}
+
 func TestParseMgmtStatus24RoutingFallback(t *testing.T) {
 	status := strings.Join([]string{
 		tsv("TITLE", "OpenVPN 2.4.12 x86_64-pc-linux-gnu"),
