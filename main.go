@@ -1081,11 +1081,12 @@ func (oAdmin *OvpnAdmin) userUnrevoke(username string) (error, string) {
 						usersFromIndexTxt[i].Flag = "V"
 						usersFromIndexTxt[i].RevocationDate = ""
 
-						err := fMove(fmt.Sprintf("%s/pki/revoked/certs_by_serial/%s.crt", *easyrsaDirPath, usersFromIndexTxt[i].SerialNumber), fmt.Sprintf("%s/pki/issued/%s.crt", *easyrsaDirPath, username))
+						revokedCert := fmt.Sprintf("%s/pki/revoked/certs_by_serial/%s.crt", *easyrsaDirPath, usersFromIndexTxt[i].SerialNumber)
+						err := fCopy(revokedCert, fmt.Sprintf("%s/pki/certs_by_serial/%s.pem", *easyrsaDirPath, usersFromIndexTxt[i].SerialNumber))
 						if err != nil {
 							log.Error(err)
 						}
-						err = fMove(fmt.Sprintf("%s/pki/revoked/certs_by_serial/%s.crt", *easyrsaDirPath, usersFromIndexTxt[i].SerialNumber), fmt.Sprintf("%s/pki/certs_by_serial/%s.pem", *easyrsaDirPath, usersFromIndexTxt[i].SerialNumber))
+						err = fMove(revokedCert, fmt.Sprintf("%s/pki/issued/%s.crt", *easyrsaDirPath, username))
 						if err != nil {
 							log.Error(err)
 						}
@@ -1129,8 +1130,35 @@ func (oAdmin *OvpnAdmin) userUnrevoke(username string) (error, string) {
 	return errors.New(fmt.Sprintf("user \"%s\" not found", username)), fmt.Sprintf("{\"msg\":\"User \"%s\" not found\"}", username)
 }
 
+// userCertRevoked reports whether the certificate of username is revoked (index.txt flag R).
+func userCertRevoked(username string) bool {
+	for _, line := range indexTxtParser(fRead(*indexTxtPath)) {
+		if line.DistinguishedName == "/CN="+username {
+			return line.Flag == "R"
+		}
+	}
+	return false
+}
+
+// revokeBeforeReplace revokes the certificate of username unless it is revoked already. Rotate and
+// delete replace or hide a certificate: an active one must not stay valid (it could still connect),
+// and easyrsa revoke moves its files out of issued/, private/ and reqs/ (an expired one kept them,
+// so no new certificate with the same name could be issued).
+func (oAdmin *OvpnAdmin) revokeBeforeReplace(username string) error {
+	if userCertRevoked(username) {
+		return nil
+	}
+	if err, msg := oAdmin.userRevoke(username); err != nil {
+		return errors.New(msg)
+	}
+	return nil
+}
+
 func (oAdmin *OvpnAdmin) userRotate(username, newPassword string) (error, string) {
 	if usernameIsPathSafe(username) && checkUserExist(username) {
+		if err := oAdmin.revokeBeforeReplace(username); err != nil {
+			return err, err.Error()
+		}
 		if *storageBackend == "kubernetes.secrets" {
 			err := app.easyrsaRotate(username, newPassword)
 			if err != nil {
@@ -1206,6 +1234,9 @@ func (oAdmin *OvpnAdmin) userRotate(username, newPassword string) (error, string
 
 func (oAdmin *OvpnAdmin) userDelete(username string) (error, string) {
 	if usernameIsPathSafe(username) && checkUserExist(username) {
+		if err := oAdmin.revokeBeforeReplace(username); err != nil {
+			return err, err.Error()
+		}
 		if *storageBackend == "kubernetes.secrets" {
 			err := app.easyrsaDelete(username)
 			if err != nil {
