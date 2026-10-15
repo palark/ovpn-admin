@@ -5,6 +5,9 @@ metadata:
   name: ovpn-admin
 spec:
   clusterIP: None
+  {{- with include "openvpn-admin.ipFamilies" . | trim }}
+  {{- . | nindent 2 }}
+  {{- end }}
   ports:
   - name: http
     port: 8000
@@ -24,6 +27,9 @@ metadata:
 spec:
   externalTrafficPolicy: Local
   type: LoadBalancer
+  {{- with include "openvpn-admin.ipFamilies" . | trim }}
+  {{- . | nindent 2 }}
+  {{- end }}
   ports:
     - name: openvpn-tcp
       protocol: TCP
@@ -39,8 +45,13 @@ metadata:
   name: openvpn-external
 spec:
   type: ClusterIP
+  {{- with include "openvpn-admin.ipFamilies" . | trim }}
+  {{- . | nindent 2 }}
+  {{- end }}
   externalIPs:
-  - {{ .Values.openvpn.externalIP }}
+  {{- range include "openvpn-admin.externalIPs" . | fromJsonArray }}
+  - {{ . | quote }}
+  {{- end }}
   ports:
   - name: openvpn-tcp
     port: {{ .Values.openvpn.externalPort | default 1194 }}
@@ -51,7 +62,7 @@ spec:
   {{- else if eq .Values.openvpn.inlet "HostPort" }}
 ---
   {{- else }}
-    {{- cat "Unsupported inlet type" .inlet | fail }}
+    {{- cat "Unsupported inlet type" .Values.openvpn.inlet | fail }}
   {{- end }}
 
 {{- end }}

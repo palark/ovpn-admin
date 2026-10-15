@@ -1,8 +1,10 @@
 FROM alpine:3.24
 ARG TARGETARCH
-RUN apk add --update bash openvpn easy-rsa iptables  && \
+# "iptables" (nft backend) also provides the ip6tables commands, "ip6tables" is listed to make the dependency explicit
+# sqlite: configure.sh fixes users.db rows migrated from openvpn-user <= 1.0.4 (secret IS NULL)
+RUN apk add --update bash openvpn easy-rsa iptables ip6tables sqlite && \
     ln -s /usr/share/easy-rsa/easyrsa /usr/local/bin && \
-    wget https://github.com/pashcovich/openvpn-user/releases/download/v1.0.4/openvpn-user-linux-${TARGETARCH}.tar.gz -O - | tar xz -C /usr/local/bin && \
+    wget https://github.com/pashcovich/openvpn-user/releases/download/v1.0.9/openvpn-user-linux-${TARGETARCH}.tar.gz -O - | tar xz -C /usr/local/bin && \
     rm -rf /tmp/* /var/tmp/* /var/cache/apk/* /var/cache/distfiles/*
 RUN if [ -f "/usr/local/bin/openvpn-user-${TARGETARCH}" ]; then ln -s /usr/local/bin/openvpn-user-${TARGETARCH} /usr/local/bin/openvpn-user; fi
 COPY setup/ /etc/openvpn/setup

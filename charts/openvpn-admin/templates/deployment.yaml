@@ -1,3 +1,12 @@
+{{- $inlet := .Values.openvpn.inlet | default "" }}
+{{- $externalHosts := list }}
+{{- if eq $inlet "ExternalIP" }}
+{{- $externalHosts = include "openvpn-admin.externalIPs" . | fromJsonArray }}
+{{- end }}
+{{- with .Values.openvpn.externalHost }}
+{{- $externalHosts = list (toString .) }}
+{{- end }}
+{{- $externalPort := include "openvpn-admin.externalPort" . }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -20,6 +29,10 @@ spec:
       tolerations:
       {{- .Values.tolerations | toYaml | indent 8 | printf "\n%s" }}
       {{- end }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       terminationGracePeriodSeconds: 0
       serviceAccountName: openvpn
       containers:
@@ -30,25 +43,22 @@ spec:
         - -c
         - /app/ovpn-admin
             --storage.backend="kubernetes.secrets"
-            --listen.host="0.0.0.0"
             --listen.port="8000"
             --role="master"
-            {{- if hasKey .Values.openvpn "inlet" }}
-              {{- if eq .Values.openvpn.inlet "LoadBalancer" }}
+            --ovpn.network="{{ .Values.openvpn.subnet }}"
+            {{- with .Values.openvpn.subnetIPv6 }}
+            --ovpn.network.ipv6="{{ . }}"
+            {{- end }}
+            {{- if eq $inlet "LoadBalancer" }}
             --ovpn.server.behindLB
             --ovpn.service="openvpn-external"
-              {{- end }}
             {{- end }}
             --mgmt=main="127.0.0.1:8989"
             --ccd --ccd.path="/mnt/ccd"
             --easyrsa.path="/mnt/certs"
-            {{- $externalHost := "" }}
-            {{- if hasKey .Values.openvpn "inlet" }}
-              {{- if eq .Values.openvpn.inlet "ExternalIP" }}{{ $externalHost = .Values.openvpn.externalIP }}{{- end }}
-            {{- end }}
-            {{- if hasKey .Values.openvpn "externalHost" }}{{ $externalHost = .Values.openvpn.externalHost }}{{- end }}
-            {{- if ne $externalHost "" }}
-            --ovpn.server="{{ $externalHost }}:{{ .Values.openvpn.externalPort | default 5416 | quote }}:tcp"
+            {{- range $externalHosts }}
+            {{- $host := trimPrefix "[" . | trimSuffix "]" }}
+            --ovpn.server="{{ if contains ":" $host }}[{{ $host }}]{{ else }}{{ $host }}{{ end }}:{{ $externalPort }}:tcp"
             {{- end }}
         ports:
         - name: ovpn-admin
@@ -60,7 +70,7 @@ spec:
           - name: ccd
             mountPath: /mnt/ccd
       - name: openvpn
-        image: {{ .Values.ovpnAdmin.repo }}:master
+        image: {{ .Values.openvpn.repo }}:master
         command: [ '/entrypoint.sh' ]
         # imagePullPolicy: Always
         securityContext:
@@ -78,7 +88,7 @@ spec:
         - name: openvpn-tcp
           protocol: TCP
           containerPort: 1194
-          {{- if eq .Values.openvpn.inlet "HostPort" }}
+          {{- if eq $inlet "HostPort" }}
           hostPort: {{ .Values.openvpn.hostPort }}
           {{- end }}
         volumeMounts:

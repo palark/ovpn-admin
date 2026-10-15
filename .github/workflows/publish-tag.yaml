@@ -17,7 +17,7 @@ env:
 jobs:
   build:
     name: build images for tag
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout code
@@ -31,7 +31,7 @@ jobs:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
         with:
-          platforms: linux/amd64, linux/arm64, linux/arm/v7, linux/arm/v8
+          platforms: linux/amd64, linux/arm64
 
       - name: Login into ghcr.io
         shell: bash

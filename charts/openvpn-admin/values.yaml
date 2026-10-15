@@ -3,11 +3,20 @@ ovpnAdmin:
 
 openvpn:
   repo: ghcr.io/palark/ovpn-admin/openvpn
+  # -- IPv4 pool for VPN clients in the `address/netmask` format (OpenVPN `server`).
   subnet: 172.16.200.0/255.255.255.0
+  # -- IPv6 pool for VPN clients in the CIDR format (OpenVPN `server-ipv6`), e.g. `fd00:16:200::/64`. Empty disables IPv6 inside the tunnel. The pod needs IPv6 forwarding, see `podSecurityContext`.
+  subnetIPv6: ""
+  # -- Accept OpenVPN clients over IPv4 and IPv6: `tcp6-server` listener and `ipFamilyPolicy: PreferDualStack` for the Services (IPv6 Service addresses require a dual-stack cluster).
+  dualStack: false
+  # -- `ipFamilies` of the Services when `dualStack` is enabled, e.g. `[IPv4, IPv6]`. Every listed family must be enabled in the cluster. Empty lets `PreferDualStack` use the families of the cluster.
+  ipFamilies: []
   # LoadBalancer or ExternalIP or HostPort
   inlet: HostPort
   #
   # If inlet: ExternalIP
+  # -- External IPv4 and/or IPv6 addresses of the `openvpn-external` Service if `inlet: ExternalIP`, they are also used as `remote` in client configs. The legacy single `externalIP` value is still supported. IPv6 addresses require `dualStack: true`.
+  externalIPs: []
   # externalIP: 1.2.3.4
   # externalPort: 1194
   #
@@ -22,6 +31,14 @@ nodeSelector: {}
 # -- [Tolerations](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/) for node taints.
 # See the [API reference](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#scheduling) for details.
 tolerations: []
+
+# -- Pod [security context](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/).
+# IPv6 inside the tunnel (`openvpn.subnetIPv6`) requires IPv6 forwarding in the pod: allow the unsafe sysctl `net.ipv6.conf.all.forwarding` on the kubelets
+# ([docs](https://kubernetes.io/docs/tasks/administer-cluster/sysctl-cluster/)) and set it here.
+podSecurityContext: {}
+  # sysctls:
+  # - name: net.ipv6.conf.all.forwarding
+  #   value: "1"
 
 ingress:
   # -- Enable [ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/).
