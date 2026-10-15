@@ -64,7 +64,7 @@
         </div>
 
         <div class="modal-footer">
-            <div class="modal-status error" role="alert" v-if="u.newUserCreateError.length > 0" v-bind:title="u.newUserCreateError">{{ u.newUserCreateError }}</div>
+            <div class="modal-status error" role="alert" v-if="u.newUserCreateError.length > 0" v-bind:title="u.newUserCreateError"><span class="modal-status-text">{{ u.newUserCreateError }}</span></div>
             <button type="button" class="btn btn-success el-square modal-el-margin" v-on:click.stop="createUser()">Create</button>
             <button type="button" class="btn btn-primary el-square d-flex justify-content-sm-end modal-el-margin" v-on:click.stop="u.newUserName='';u.newUserPassword='nopass';u.newUserCreateError='';u.modalNewUserVisible=false">Close</button>
         </div>
@@ -83,7 +83,7 @@
         </div>
 
         <div class="modal-footer">
-          <div class="modal-status" role="alert" v-bind:class="passwordChangeStatusCssClass" v-if="u.passwordChangeMessage.length > 0" v-bind:title="u.passwordChangeMessage">{{ u.passwordChangeMessage }}</div>
+          <div class="modal-status" role="alert" v-bind:class="passwordChangeStatusCssClass" v-if="u.passwordChangeMessage.length > 0" v-bind:title="u.passwordChangeMessage"><span class="modal-status-text">{{ u.passwordChangeMessage }}</span></div>
           <button type="button" class="btn btn-success el-square modal-el-margin" v-on:click.stop="changeUserPassword(username)">Change password</button>
           <button type="button" class="btn btn-primary el-square d-flex justify-content-sm-end modal-el-margin" v-on:click.stop="u.newPassword='';u.passwordChangeMessage='';u.modalChangePasswordVisible=false">Close</button>
         </div>
@@ -178,7 +178,7 @@
           </table>
         </div>
         <div class="modal-footer">
-            <div class="modal-status" role="alert" v-bind:class="ccdApplyStatusCssClass" v-if="u.ccdApplyStatusMessage.length > 0" v-bind:title="u.ccdApplyStatusMessage">{{ u.ccdApplyStatusMessage }}</div>
+            <div class="modal-status" role="alert" v-bind:class="ccdApplyStatusCssClass" v-if="u.ccdApplyStatusMessage.length > 0" v-bind:title="u.ccdApplyStatusMessage"><span class="modal-status-text">{{ u.ccdApplyStatusMessage }}</span></div>
             <button type="button" class="btn btn-success el-square modal-el-margin" v-if="serverRole == 'master'" v-bind:disabled="!u.ccdLoaded" v-on:click.stop="ccdApply()">Save</button>
             <button type="button" class="btn btn-primary el-square modal-el-margin" v-on:click.stop="closeCcdModal()">Close</button>
         </div>
@@ -198,7 +198,7 @@
         </div>
 
         <div class="modal-footer">
-          <div class="modal-status" role="alert" v-bind:class="userRotateStatusCssClass" v-if="u.rotateUserMessage.length > 0" v-bind:title="u.rotateUserMessage">{{ u.rotateUserMessage }}</div>
+          <div class="modal-status" role="alert" v-bind:class="userRotateStatusCssClass" v-if="u.rotateUserMessage.length > 0" v-bind:title="u.rotateUserMessage"><span class="modal-status-text">{{ u.rotateUserMessage }}</span></div>
           <button type="button" class="btn btn-danger el-square modal-el-margin" v-on:click.stop="rotateUser(username)">Rotate</button>
           <button type="button" class="btn btn-primary el-square d-flex justify-content-sm-end modal-el-margin" v-on:click.stop="u.newPassword='';u.rotateUserMessage='';u.modalRotateUserVisible=false">Close</button>
         </div>
@@ -214,7 +214,7 @@
         </div>
 
         <div class="modal-footer">
-          <div class="modal-status" role="alert" v-bind:class="deleteUserStatusCssClass" v-if="u.deleteUserMessage.length > 0" v-bind:title="u.deleteUserMessage">{{ u.deleteUserMessage }}</div>
+          <div class="modal-status" role="alert" v-bind:class="deleteUserStatusCssClass" v-if="u.deleteUserMessage.length > 0" v-bind:title="u.deleteUserMessage"><span class="modal-status-text">{{ u.deleteUserMessage }}</span></div>
           <button type="button" class="btn btn-danger el-square modal-el-margin" v-on:click.stop="deleteUser(username)">Delete</button>
           <button type="button" class="btn btn-primary el-square d-flex justify-content-sm-end modal-el-margin" v-on:click.stop="u.deleteUserMessage='';u.modalDeleteUserVisible=false">Close</button>
         </div>
