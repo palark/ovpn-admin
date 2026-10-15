@@ -13,6 +13,11 @@ body {
   flex-direction: column;
 }
 
+/* hide raw in-DOM template until Vue has mounted (#app sets display: flex) */
+#app[v-cloak] {
+  display: none;
+}
+
 .dropdown-custom {
   display: block;
 }
@@ -36,8 +41,17 @@ body {
   margin:  auto 0;
 }
 
+/* .modal-wrapper is a flex container, let the dialog take its bootstrap max-width */
+.modal-wrapper .modal-dialog {
+  width: 100%;
+}
+
 .static-address-label {
    margin: 0.1em 1em 0.1em 0.1em;
+}
+
+.ccd-address-label {
+  min-width: 11rem;
 }
 
 .modal-el-margin {

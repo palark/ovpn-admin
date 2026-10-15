@@ -2,47 +2,48 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ovpn-admin</title>
 </head>
 <body>
 <script src="dist/style.min.js"></script>
-<div id="app">
+<div id="app" v-cloak>
   <vue-good-table
     :columns="columns"
     :rows="filteredRows"
     :line-numbers="true"
     :row-style-class="rowStyleClassFn"
-    :search-options="{ enabled: true}" >
-    <div slot="table-actions">
+    :search-options="{ enabled: true }">
+    <template v-slot:table-actions>
       <button type="button" class="btn btn-sm btn-success el-square" v-show="serverRole == 'master'" v-on:click.stop="u.modalNewUserVisible=true">Add user</button>
-      <b-badget class="btn btn-sm btn-info el-square" v-if="serverRole == 'slave'">Slave - last sync: {{ lastSync }}</b-badget>
-      <button type="button" class="btn btn-sm btn-secondary el-square" v-on:click.stop="filters.hideRevoked=!filters.hideRevoked;this.$cookies.set('hideRevoked',!(this.$cookies.get('hideRevoked') == 'true'), -1);">{{ revokeFilterText }}</button>
-    </div>
-    <div slot="emptystate" class="d-flex justify-content-center">
-      <h4>No users have been created yet.</h4>
-      <br>
-      <button type="button" class="btn btn-sm btn-success el-square" v-if="serverRole == 'master'" v-on:click.stop="u.modalNewUserVisible=true">Add user</button>
-    </div>
-    <template slot="table-row" slot-scope="props">
+      <span class="badge text-bg-info el-square" v-if="serverRole == 'slave'">Slave - last sync: {{ lastSync }}</span>
+      <button type="button" class="btn btn-sm btn-secondary el-square" v-on:click.stop="toggleRevokedFilter()">{{ revokeFilterText }}</button>
+    </template>
+    <template v-slot:emptystate>
+      <div class="d-flex justify-content-center">
+        <h4>No users have been created yet.</h4>
+        <br>
+        <button type="button" class="btn btn-sm btn-success el-square" v-if="serverRole == 'master'" v-on:click.stop="u.modalNewUserVisible=true">Add user</button>
+      </div>
+    </template>
+    <template v-slot:table-row="props">
       <span v-if="props.column.field == 'actions'">
         <button
           class="btn btn-sm el-square modal-el-margin"
           type="button"
+          v-for="action in rowActions(props.row)"
+          :key="action.name"
           :title="action.label"
-          :data-username="props.row.Identity"
-          :data-name="action.name"
-          :data-text="action.label"
-          @click.left.stop="rowActionFn"
-          v-for="action in actions"
           v-bind:class="action.class"
-          v-if="action.showWhenStatus == props.row.AccountStatus && action.showForServerRole.includes(serverRole) && action.showForModule.some(p=> modulesEnabled.includes(p))">
+          @click.left.stop="rowActionFn(action.name, props.row.Identity)">
           {{ action.label }}
         </button>
       </span>
+      <span v-else>{{ props.formattedRow[props.column.field] }}</span>
     </template>
   </vue-good-table>
 
-  <div class="modal-wrapper" v-if="u.modalNewUserVisible" v-bind:style="modalNewUserDisplay">
+  <div class="modal modal-wrapper" v-if="u.modalNewUserVisible" v-bind:style="modalNewUserDisplay">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
         <div class="modal-header">
@@ -60,13 +61,13 @@
         </div>
         <div class="modal-footer">
             <button type="button" class="btn btn-success el-square modal-el-margin" v-on:click.stop="createUser()">Create</button>
-            <button type="button" class="btn btn-primary el-square d-flex justify-content-sm-end modal-el-margin" v-on:click.stop="u.newUserName='';u.newUserPassword='nopass';u.modalNewUserVisible=false">Close</button>
+            <button type="button" class="btn btn-primary el-square d-flex justify-content-sm-end modal-el-margin" v-on:click.stop="u.newUserName='';u.newUserPassword='nopass';u.newUserCreateError='';u.modalNewUserVisible=false">Close</button>
         </div>
       </div>
     </div>
   </div>
 
-  <div class="modal-wrapper" v-if="u.modalChangePasswordVisible" v-bind:style="modalChangePasswordDisplay">
+  <div class="modal modal-wrapper" v-if="u.modalChangePasswordVisible" v-bind:style="modalChangePasswordDisplay">
     <div class="modal-dialog modal-lg">
       <div class="modal-content">
         <div class="modal-header">
@@ -89,7 +90,7 @@
     </div>
   </div>
 
-  <div class="modal-wrapper" v-if="u.modalShowConfigVisible" v-bind:style="modalShowConfigDisplay">
+  <div class="modal modal-wrapper" v-if="u.modalShowConfigVisible" v-bind:style="modalShowConfigDisplay">
     <div class="modal-dialog modal-lg">
       <div class="modal-content">
         <div class="modal-header">
@@ -102,7 +103,7 @@
         </div>
         <div class="modal-footer">
           <div class="d-flex">
-            <button type="button" class="btn btn-success el-square modal-el-margin" v-clipboard:copy="u.openvpnConfig">Copy </button>
+            <button type="button" class="btn btn-success el-square modal-el-margin" v-on:click.stop="copyConfig()">Copy </button>
             <button type="button" class="btn btn-primary el-square modal-el-margin" v-on:click.stop="u.openvpnConfig='';u.modalShowConfigVisible=false">Cancel</button>
           </div>
         </div>
@@ -110,7 +111,7 @@
       </div>
     </div>
 
-  <div class="modal-wrapper" v-if="u.modalShowCcdVisible" v-bind:style="modalShowCcdDisplay">
+  <div class="modal modal-wrapper" v-if="u.modalShowCcdVisible" v-bind:style="modalShowCcdDisplay">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
       <div class="modal-content">
         <div class="modal-header">
@@ -118,59 +119,62 @@
         </div>
         <div class="modal-body">
           <div class="input-group">
-            <h5 class="static-address-label ">Static address:</h5>
-            <input id="static-address" type="text" class="form-control" v-model="u.ccd.ClientAddress" placeholder="127.0.0.1">
-            <div class="input-group-append">
-              <button id="static-address-clear" class="btn btn-warning" type="button" v-on:click="u.ccd.ClientAddress = 'dynamic'" v-if="serverRole == 'master'" v-bind:disabled="customAddressDynamic">Clear</button>
-            </div>
+            <label class="input-group-text ccd-address-label" for="static-address">Static IPv4 address</label>
+            <input id="static-address" type="text" class="form-control" v-model="u.ccd.ClientAddress" placeholder="172.16.100.10">
+            <button id="static-address-clear" class="btn btn-warning" type="button" v-on:click="u.ccd.ClientAddress = 'dynamic'" v-if="serverRole == 'master'" v-bind:disabled="customAddressDynamic">Clear</button>
           </div>
+          <div class="input-group mt-2" v-if="showIPv6Address">
+            <label class="input-group-text ccd-address-label" for="static-address-ipv6">Static IPv6 address</label>
+            <input id="static-address-ipv6" type="text" class="form-control" v-model="u.ccd.ClientAddressIPv6" placeholder="fd00:16:100::10">
+            <button id="static-address-ipv6-clear" class="btn btn-warning" type="button" v-on:click="u.ccd.ClientAddressIPv6 = 'dynamic'" v-if="serverRole == 'master'" v-bind:disabled="customAddressIPv6Dynamic">Clear</button>
+          </div>
+          <div class="form-text" v-if="serverRole == 'master'">"dynamic" (Clear) lets OpenVPN assign an address from the pool.</div>
         </div>
         <div class="modal-body">
-          <div class="d-flex ">
-            <table class="table table-bordered table-hover ccd-routes" >
-              <thead>
-                <tr>
-                  <th scope="col">Address</th>
-                  <th scope="col">Mask</th>
-                  <th scope="col">Description</th>
-                  <th scope="col" v-if="serverRole == 'master'">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(customRoute, index) in u.ccd.CustomRoutes">
-                  <td>
-                    <div v-if="serverRole == 'slave'">
-                      {{ customRoute.Address }}
-                    </div>
-                    <input v-if="serverRole == 'master'" v-model="customRoute.Address">
-                  </td>
-                  <td>
-                    <div v-if="serverRole == 'slave'">
-                    {{ customRoute.Mask }}
-                    </div>
-                    <input v-if="serverRole == 'master'" v-model="customRoute.Mask">
-                  </td>
-                  <td>
-                    <div v-if="serverRole == 'slave'">
-                    {{ customRoute.Description }}
-                    </div>
-                    <input v-if="serverRole == 'master'" v-model="customRoute.Description">
-                  </td>
-                  <td class="text-right" v-if="serverRole == 'master'">
-                      <button type="button" class="btn btn-danger btn-sm el-square modal-el-margin" v-if="serverRole == 'master'" v-on:click.stop="u.ccd.CustomRoutes.splice(index, 1)">Delete</button>
-                  </td>
-                </tr>
-                <tr v-if="serverRole == 'master'">
-                  <td><input type="text" v-model="u.newRoute.Address"/></td>
-                  <td><input type="text" v-model="u.newRoute.Mask"/></td>
-                  <td><input type="text" v-model="u.newRoute.Description"/></td>
-                  <td class="text-right" v-if="serverRole == 'master'">
-                    <button type="button" class="btn btn-success el-square modal-el-margin" v-on:click.stop="u.ccd.CustomRoutes.push(u.newRoute);u.newRoute={};">Add</button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          <table class="table table-bordered table-hover ccd-routes" >
+            <caption>Mask / Prefix: IPv4 - netmask, e.g. 255.255.255.0; IPv6 - prefix length, e.g. 64 (or Address as fd00:1::/64 with empty Mask).</caption>
+            <thead>
+              <tr>
+                <th scope="col">Address</th>
+                <th scope="col">Mask / Prefix</th>
+                <th scope="col">Description</th>
+                <th scope="col" v-if="serverRole == 'master'">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(customRoute, index) in u.ccd.CustomRoutes">
+                <td>
+                  <div v-if="serverRole == 'slave'">
+                    {{ customRoute.Address }}
+                  </div>
+                  <input class="form-control form-control-sm" v-if="serverRole == 'master'" v-model="customRoute.Address">
+                </td>
+                <td>
+                  <div v-if="serverRole == 'slave'">
+                  {{ customRoute.Mask }}
+                  </div>
+                  <input class="form-control form-control-sm" v-if="serverRole == 'master'" v-model="customRoute.Mask">
+                </td>
+                <td>
+                  <div v-if="serverRole == 'slave'">
+                  {{ customRoute.Description }}
+                  </div>
+                  <input class="form-control form-control-sm" v-if="serverRole == 'master'" v-model="customRoute.Description">
+                </td>
+                <td class="text-end" v-if="serverRole == 'master'">
+                    <button type="button" class="btn btn-danger btn-sm el-square modal-el-margin" v-on:click.stop="u.ccd.CustomRoutes.splice(index, 1)">Delete</button>
+                </td>
+              </tr>
+              <tr v-if="serverRole == 'master'">
+                <td><input type="text" class="form-control form-control-sm" placeholder="10.1.0.0 or fd00:1::" v-model="u.newRoute.Address"></td>
+                <td><input type="text" class="form-control form-control-sm" placeholder="255.255.0.0 or 64" v-model="u.newRoute.Mask"></td>
+                <td><input type="text" class="form-control form-control-sm" v-model="u.newRoute.Description"></td>
+                <td class="text-end">
+                  <button type="button" class="btn btn-success btn-sm el-square modal-el-margin" v-bind:disabled="u.newRoute.Address.trim() == ''" v-on:click.stop="addRoute()">Add</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
         <div class="modal-footer justify-content-center" v-if="u.ccdApplyStatusMessage.length > 0">
             <div class="alert" v-bind:class="ccdApplyStatusCssClass" role="alert">
@@ -178,14 +182,14 @@
             </div>
         </div>
         <div class="modal-footer">
-            <button type="button" class="btn btn-success el-square modal-el-margin" v-if="serverRole == 'master'" v-on:click.stop="ccdApply()">Save</button>
-            <button type="button" class="btn btn-primary el-square modal-el-margin" v-on:click.stop="u.ccd={Name:'',ClientAddress:'',CustomRoutes:[]};u.ccdApplyStatusMessage='';u.ccdApplyStatus='';u.modalShowCcdVisible=false">Close</button>
+            <button type="button" class="btn btn-success el-square modal-el-margin" v-if="serverRole == 'master'" v-bind:disabled="!u.ccdLoaded" v-on:click.stop="ccdApply()">Save</button>
+            <button type="button" class="btn btn-primary el-square modal-el-margin" v-on:click.stop="closeCcdModal()">Close</button>
         </div>
       </div>
     </div>
   </div>
 
-  <div class="modal-wrapper" v-if="u.modalRotateUserVisible" v-bind:style="modalRotateUserDisplay">
+  <div class="modal modal-wrapper" v-if="u.modalRotateUserVisible" v-bind:style="modalRotateUserDisplay">
     <div class="modal-dialog modal-lg">
       <div class="modal-content">
         <div class="modal-header">
@@ -209,7 +213,7 @@
     </div>
   </div>
 
-  <div class="modal-wrapper" v-if="u.modalDeleteUserVisible" v-bind:style="modalDeleteUserDisplay">
+  <div class="modal modal-wrapper" v-if="u.modalDeleteUserVisible" v-bind:style="modalDeleteUserDisplay">
     <div class="modal-dialog modal-lg">
       <div class="modal-content">
         <div class="modal-header">
@@ -229,7 +233,7 @@
     </div>
   </div>
 
-  <notifications position="bottom left" :speed="900" />
+  <notifications position="bottom left" :speed="900"></notifications>
 </div>
 <script src="dist/bundle.min.js"></script>
 </body>
