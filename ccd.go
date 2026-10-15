@@ -325,11 +325,27 @@ func normalizeClientAddressIPv4(s string) (netip.Addr, error) {
 		return netip.Addr{}, fmt.Errorf("ClientAddress \"%s\" is the network address of %s", s, network)
 	case addr == ipv4Broadcast(network):
 		return netip.Addr{}, fmt.Errorf("ClientAddress \"%s\" is the broadcast address of %s", s, network)
-	case addr == serverAddress(network):
-		return netip.Addr{}, fmt.Errorf("ClientAddress \"%s\" is reserved for the OpenVPN server", s)
+	}
+	if err := checkOvpnServerAddr("ClientAddress", s, addr, network); err != nil {
+		return netip.Addr{}, err
 	}
 
 	return addr, nil
+}
+
+// checkOvpnServerAddr rejects the tunnel address of an OpenVPN server. The addresses come from
+// the management interfaces ("state"), so a server with its own address (e.g. "ifconfig" of a
+// tap server) is protected as well; while no address of this family is known, network+1 is
+// assumed, the address OpenVPN takes with --server / --server-ipv6.
+func checkOvpnServerAddr(field, s string, addr netip.Addr, network netip.Prefix) error {
+	server, familyKnown := lookupOvpnServerAddr(addr)
+	switch {
+	case server != "":
+		return fmt.Errorf("%s \"%s\" is the address of the OpenVPN server %q", field, s, server)
+	case !familyKnown && addr == serverAddress(network):
+		return fmt.Errorf("%s \"%s\" is reserved for the OpenVPN server", field, s)
+	}
+	return nil
 }
 
 // normalizeClientAddressIPv6 returns the zero Addr for "dynamic".
@@ -363,8 +379,9 @@ func normalizeClientAddressIPv6(s string) (netip.Addr, error) {
 		return netip.Addr{}, fmt.Errorf("ClientAddressIPv6 \"%s\" does not belong to the OpenVPN IPv6 network %s", s, network)
 	case addr == network.Addr():
 		return netip.Addr{}, fmt.Errorf("ClientAddressIPv6 \"%s\" is the network address of %s", s, network)
-	case addr == serverAddress(network):
-		return netip.Addr{}, fmt.Errorf("ClientAddressIPv6 \"%s\" is reserved for the OpenVPN server", s)
+	}
+	if err := checkOvpnServerAddr("ClientAddressIPv6", s, addr, network); err != nil {
+		return netip.Addr{}, err
 	}
 
 	return addr, nil

@@ -176,6 +176,61 @@ func TestValidateCcdErrors(t *testing.T) {
 	}
 }
 
+// setOvpnServerAddrsForTest replaces the server addresses learned from the management interfaces.
+func setOvpnServerAddrsForTest(t *testing.T, addrs map[string][]string) {
+	t.Helper()
+	ovpnServerAddrsMu.Lock()
+	old := ovpnServerAddrs
+	ovpnServerAddrs = map[string][]netip.Addr{}
+	for srv, list := range addrs {
+		for _, a := range list {
+			ovpnServerAddrs[srv] = append(ovpnServerAddrs[srv], netip.MustParseAddr(a))
+		}
+	}
+	ovpnServerAddrsMu.Unlock()
+	t.Cleanup(func() {
+		ovpnServerAddrsMu.Lock()
+		ovpnServerAddrs = old
+		ovpnServerAddrsMu.Unlock()
+	})
+}
+
+func TestValidateCcdServerAddress(t *testing.T) {
+	setupCcdTest(t, true)
+
+	v4 := func(a string) Ccd { return Ccd{User: "dots.user", ClientAddress: a} }
+	v6 := func(a string) Ccd { return Ccd{User: "dots.user", ClientAddressIPv6: a} }
+	tests := []struct {
+		name    string
+		servers map[string][]string
+		in      Ccd
+		wantErr string // "" = valid
+	}{
+		// a tap server with "ifconfig 172.16.100.50" and "ifconfig-ipv6 fd00:16:100::50/64"
+		{"learned v4 address", map[string][]string{"main": {"172.16.100.50", "fd00:16:100::50"}}, v4("172.16.100.50"), `is the address of the OpenVPN server "main"`},
+		{"network+1 is free when the address is known", map[string][]string{"main": {"172.16.100.50", "fd00:16:100::50"}}, v4("172.16.100.1"), ""},
+		{"learned v6 address", map[string][]string{"main": {"172.16.100.50", "fd00:16:100::50"}}, v6("fd00:16:100:0::50"), `is the address of the OpenVPN server "main"`},
+		{"v6 network+1 is free when the address is known", map[string][]string{"main": {"172.16.100.50", "fd00:16:100::50"}}, v6("fd00:16:100::1"), ""},
+		{"second server", map[string][]string{"main": {"172.16.100.50"}, "backup": {"172.16.100.60"}}, v4("172.16.100.60"), `is the address of the OpenVPN server "backup"`},
+		// nothing known for a family: network+1 is assumed
+		{"v6 unknown falls back to network+1", map[string][]string{"main": {"172.16.100.50"}}, v6("fd00:16:100::1"), "is reserved for the OpenVPN server"},
+		{"nothing learned", nil, v4("172.16.100.1"), "is reserved for the OpenVPN server"},
+		{"nothing learned, other address", nil, v4("172.16.100.50"), ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setOvpnServerAddrsForTest(t, tt.servers)
+			_, err := validateCcd(tt.in)
+			switch {
+			case tt.wantErr == "" && err != nil:
+				t.Errorf("validateCcd(%+v) = %v, want no error", tt.in, err)
+			case tt.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tt.wantErr)):
+				t.Errorf("validateCcd(%+v) error = %v, want error containing %q", tt.in, err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestValidateCcdSyntaxBeforeUniqueness(t *testing.T) {
 	setupCcdTest(t, true)
 	// the address is taken by bob, but the bad route must be reported first

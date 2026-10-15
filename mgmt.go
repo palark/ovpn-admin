@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -349,6 +350,60 @@ func updateConnectionMetrics(clients []clientStatus) {
 	}
 }
 
+// Tunnel addresses of the OpenVPN servers by management alias, learned from "state" together
+// with the client list. A server that is not reachable keeps its last known addresses.
+var (
+	ovpnServerAddrsMu sync.RWMutex
+	ovpnServerAddrs   = map[string][]netip.Addr{}
+)
+
+// parseMgmtState returns the tun/tap addresses of a server from the output of the "state"
+// management command, e.g. "1792037878,CONNECTED,SUCCESS,172.29.11.10,,,,,fd78:29:12::10":
+// field 4 is the local IPv4 address, field 9 the local IPv6 address (both from the server
+// config: ifconfig/server and ifconfig-ipv6/server-ipv6). ok is false unless the server is CONNECTED.
+func parseMgmtState(out string) (addrs []netip.Addr, ok bool) {
+	for _, line := range strings.Split(out, "\n") {
+		fields := strings.Split(strings.TrimRight(line, "\r"), ",")
+		if len(fields) < 4 || fields[1] != "CONNECTED" {
+			continue
+		}
+		ok = true
+		for _, i := range []int{3, 8} {
+			if i < len(fields) {
+				if addr, err := netip.ParseAddr(fields[i]); err == nil {
+					addrs = append(addrs, addr.Unmap())
+				}
+			}
+		}
+	}
+	return addrs, ok
+}
+
+func setOvpnServerAddrs(server string, addrs []netip.Addr) {
+	ovpnServerAddrsMu.Lock()
+	defer ovpnServerAddrsMu.Unlock()
+	ovpnServerAddrs[server] = addrs
+}
+
+// lookupOvpnServerAddr returns the server that uses addr (or "") and whether an address of
+// the same family is known for any server.
+func lookupOvpnServerAddr(addr netip.Addr) (server string, familyKnown bool) {
+	ovpnServerAddrsMu.RLock()
+	defer ovpnServerAddrsMu.RUnlock()
+	for _, srv := range slices.Sorted(maps.Keys(ovpnServerAddrs)) {
+		for _, a := range ovpnServerAddrs[srv] {
+			if a.Is4() != addr.Is4() {
+				continue
+			}
+			familyKnown = true
+			if a == addr && server == "" {
+				server = srv
+			}
+		}
+	}
+	return server, familyKnown
+}
+
 func (oAdmin *OvpnAdmin) mgmtGetActiveClients() []clientStatus {
 	var activeClients []clientStatus
 
@@ -361,6 +416,15 @@ func (oAdmin *OvpnAdmin) mgmtGetActiveClients() []clientStatus {
 		}
 		log.Trace(out)
 		activeClients = append(activeClients, parseMgmtStatus(out, srv)...)
+
+		state, err := mgmtCommand(addr, "state", isMgmtEnd)
+		if err != nil {
+			log.Warnf("openvpn mgmt interface for %s: state: %v", srv, err)
+			continue
+		}
+		if serverAddrs, ok := parseMgmtState(state); ok {
+			setOvpnServerAddrs(srv, serverAddrs)
+		}
 	}
 
 	updateConnectionMetrics(activeClients)

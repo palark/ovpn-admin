@@ -98,7 +98,7 @@ IPv6 is optional and disabled by default (except the web UI listener). An IPv4 p
 
 ### Static addresses and routes (CCD)
 
-With `--ccd` every user can get a static IPv4 address (inside `--ovpn.network`, except the network, broadcast and server (network+1) addresses) and, when IPv6 is enabled, a static IPv6 address (inside `--ovpn.network.ipv6`, except the network and server (network+1) addresses). Static addresses must be unique across users. Routes are IPv4 (address + dotted netmask, `10.1.0.0` / `255.255.0.0`) or IPv6 (address + prefix length, `fd00:1::` / `64`, the CIDR form `fd00:1::/64` is accepted too). A generated CCD file looks like:
+With `--ccd` every user can get a static IPv4 address (inside `--ovpn.network`, except the network, broadcast and server addresses) and, when IPv6 is enabled, a static IPv6 address (inside `--ovpn.network.ipv6`, except the network and server addresses). The server addresses are read from the running OpenVPN servers (the `state` command of their management interfaces, i.e. the addresses of `server`/`ifconfig` and `server-ipv6`/`ifconfig-ipv6` in their configs), so a server with its own address, e.g. a `dev tap` server with `ifconfig 172.29.11.10 255.255.255.0`, is protected as well; while a server has not reported an address of a family, network+1 (the address OpenVPN takes with `server`/`server-ipv6`) is reserved instead. Static addresses must be unique across users. Routes are IPv4 (address + dotted netmask, `10.1.0.0` / `255.255.0.0`) or IPv6 (address + prefix length, `fd00:1::` / `64`, the CIDR form `fd00:1::/64` is accepted too). A generated CCD file looks like:
 
 ```
 ifconfig-push 172.16.100.10 255.255.255.0

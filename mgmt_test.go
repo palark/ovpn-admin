@@ -69,6 +69,34 @@ func TestParseMgmtStatus26(t *testing.T) {
 
 // OpenVPN 2.4: no "Data Channel Cipher" column, ctime-like human dates; the IPv6
 // virtual address is only known from the routing table.
+func TestParseMgmtState(t *testing.T) {
+	// real "state" output of OpenVPN 2.6.14 servers
+	tests := []struct {
+		name   string
+		out    string
+		want   []string
+		wantOk bool
+	}{
+		{"tap with ifconfig", "1792037878,CONNECTED,SUCCESS,172.29.11.10,,,,\r\nEND\r\n", []string{"172.29.11.10"}, true},
+		{"tap with ifconfig-ipv6", "1792037887,CONNECTED,SUCCESS,172.29.12.10,,,,,fd78:29:12::10\r\nEND\r\n", []string{"172.29.12.10", "fd78:29:12::10"}, true},
+		{"tun with server and server-ipv6", "1792037896,CONNECTED,SUCCESS,10.8.0.1,,,,,fd00:8::1\r\nEND\r\n", []string{"10.8.0.1", "fd00:8::1"}, true},
+		{"not connected yet", "1792037878,ASSIGN_IP,,10.8.0.1,,,,\r\nEND\r\n", nil, false},
+		{"error", "ERROR: unknown command, enter 'help' for more options\r\n", nil, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			addrs, ok := parseMgmtState(tt.out)
+			var got []string
+			for _, a := range addrs {
+				got = append(got, a.String())
+			}
+			if ok != tt.wantOk || strings.Join(got, " ") != strings.Join(tt.want, " ") {
+				t.Errorf("parseMgmtState() = %v, %v; want %v, %v", got, ok, tt.want, tt.wantOk)
+			}
+		})
+	}
+}
+
 // dev tap: the routing table holds MAC addresses, CLIENT_LIST has the address from
 // ifconfig-push (dave) or nothing (erin gets its address from DHCP behind the bridge).
 func TestParseMgmtStatusTap(t *testing.T) {
