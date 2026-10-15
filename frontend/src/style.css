@@ -131,10 +131,10 @@ body {
 }
 
 /* browser add-ons (password managers, translators) overlay the bottom of the window: keep a strip
-   of half a user row there (--page-footer-height is measured in main.js) so they do not cover the
-   last users; notifications move above it */
+   of two thirds of a user row there (--page-footer-height is measured in main.js) so they do not
+   cover the last users; notifications move above it */
 :root {
-  --page-footer-height: 24px;
+  --page-footer-height: 36px;
 }
 
 /* body is the scroll container (overflow-y: scroll) and its own padding is not scrollable: pad #app */
@@ -148,9 +148,27 @@ body {
   bottom: 0;
   left: 0;
   z-index: 900;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
   height: var(--page-footer-height);
+  padding: 0 1rem;
+  font-size: 12px;
+  color: var(--bs-secondary-color, #6c757d);
   background-color: var(--bs-tertiary-bg, #f8f9fa);
   border-top: 1px solid var(--bs-border-color, #dee2e6);
+}
+
+.page-footer-item {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.page-footer a {
+  color: inherit;
 }
 
 .vue-notification-group {

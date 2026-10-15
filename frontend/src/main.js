@@ -400,11 +400,11 @@ const app = createApp({
 
   },
   methods: {
-    // the page footer is half a user row high (see .page-footer in style.css)
+    // the page footer is two thirds of a user row high (see .page-footer in style.css)
     updatePageFooterHeight: function() {
       // a user row has a line number cell, the "no users" row has not
       const cell = document.querySelector('.vgt-table tbody th.line-numbers');
-      const height = cell ? Math.round(cell.parentElement.getBoundingClientRect().height / 2) : 0;
+      const height = cell ? Math.round(cell.parentElement.getBoundingClientRect().height * 2 / 3) : 0;
       if (height > 0) {
         document.documentElement.style.setProperty('--page-footer-height', height + 'px');
       }
