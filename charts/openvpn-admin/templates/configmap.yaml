@@ -1,6 +1,15 @@
-{{ $openvpnNetwork := required "A valid .Values.openvpn.subnet entry required!" .Values.openvpn.subnet }}
-{{ $openvpnNetworkAddress := index (splitList "/" $openvpnNetwork) 0 }}
-{{ $openvpnNetworkNetmask := index (splitList "/" $openvpnNetwork) 1 }}
+{{- $openvpnNetwork := required "A valid .Values.openvpn.subnet entry required!" .Values.openvpn.subnet }}
+{{- $openvpnNetworkParts := splitList "/" $openvpnNetwork }}
+{{- /* OpenVPN "server" takes a dotted netmask: a prefix length (172.16.200.0/24) would break the config */}}
+{{- if or (ne (len $openvpnNetworkParts) 2) (not (contains "." (index $openvpnNetworkParts 1))) }}
+{{- fail "openvpn.subnet must be in the address/netmask format, e.g. 172.16.200.0/255.255.255.0" }}
+{{- end }}
+{{- $openvpnNetworkAddress := index $openvpnNetworkParts 0 }}
+{{- $openvpnNetworkNetmask := index $openvpnNetworkParts 1 }}
+{{- $openvpnNetworkIPv6 := .Values.openvpn.subnetIPv6 | default "" }}
+{{- if and $openvpnNetworkIPv6 (not (contains "/" $openvpnNetworkIPv6)) }}
+{{- fail "openvpn.subnetIPv6 must be in the CIDR format, e.g. fd00:16:200::/64" }}
+{{- end }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -15,7 +24,7 @@ data:
     tls-server
     # dev-type tun
     dev tun
-    proto tcp-server
+    proto {{ if .Values.openvpn.dualStack }}tcp6-server{{ else }}tcp-server{{ end }}
     port 1194
     # local 127.0.0.1
     management 127.0.0.1 8989
@@ -34,6 +43,9 @@ data:
     duplicate-cn
 
     server {{ $openvpnNetworkAddress }} {{ $openvpnNetworkNetmask }}
+    {{- with $openvpnNetworkIPv6 }}
+    server-ipv6 {{ . }}
+    {{- end }}
 
     topology subnet
     push "topology subnet"
@@ -58,7 +70,20 @@ data:
     #!/bin/sh
     set -x
 
+    iptables -t nat -D POSTROUTING -s {{ $openvpnNetworkAddress }}/{{ $openvpnNetworkNetmask }} ! -d {{ $openvpnNetworkAddress }}/{{ $openvpnNetworkNetmask }} -j MASQUERADE || true
     iptables -t nat -A POSTROUTING -s {{ $openvpnNetworkAddress }}/{{ $openvpnNetworkNetmask }} ! -d {{ $openvpnNetworkAddress }}/{{ $openvpnNetworkNetmask }} -j MASQUERADE
+    {{- with $openvpnNetworkIPv6 }}
+
+    ip6tables -t nat -D POSTROUTING -s {{ . }} ! -d {{ . }} -j MASQUERADE || true
+    ip6tables -t nat -A POSTROUTING -s {{ . }} ! -d {{ . }} -j MASQUERADE
+
+    if [ "$(cat /proc/sys/net/ipv6/conf/all/forwarding 2>/dev/null)" != "1" ]; then
+      if ! sysctl -w net.ipv6.conf.all.forwarding=1; then
+        echo "WARNING: cannot enable IPv6 forwarding (/proc/sys is read-only), IPv6 traffic of VPN clients is not routed." \
+          "Set the net.ipv6.conf.all.forwarding=1 sysctl via podSecurityContext of the chart." >&2
+      fi
+    fi
+    {{- end }}
 
     mkdir -p /dev/net
     if [ ! -c /dev/net/tun ]; then

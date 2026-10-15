@@ -1,5 +1,3 @@
-version: '3'
-
 services:
   openvpn:
     build:
@@ -10,9 +8,18 @@ services:
     environment:
       OVPN_SERVER_NET: "192.168.100.0"
       OVPN_SERVER_MASK: "255.255.255.0"
+      # IPv6 pool for VPN clients (OpenVPN server-ipv6), remove to disable IPv6 inside the tunnel
+      OVPN_SERVER_NET6: "fd00:192:168:100::/64"
+      # tcp6 = dual-stack listener: accepts clients over IPv4 and IPv6
+      OVPN_PROTO: "tcp6"
       OVPN_PASSWD_AUTH: "true"
     cap_add:
       - NET_ADMIN
+    sysctls:
+      net.ipv6.conf.all.disable_ipv6: 0
+      net.ipv6.conf.all.forwarding: 1
+    networks:
+      - ovpn
     ports:
       - 7777:1194 # for openvpn
       - 8080:8080 # for ovpn-admin because of network_mode
@@ -29,6 +36,8 @@ services:
       OVPN_DEBUG: "true"
       OVPN_VERBOSE: "true"
       OVPN_NETWORK: "192.168.100.0/24"
+      # must match OVPN_SERVER_NET6 of the openvpn service
+      OVPN_NETWORK_IPV6: "fd00:192:168:100::/64"
       OVPN_CCD: "true"
       OVPN_CCD_PATH: "/mnt/ccd"
       EASYRSA_PATH: "/mnt/easyrsa"
@@ -36,8 +45,21 @@ services:
       OVPN_INDEX_PATH: "/mnt/easyrsa/pki/index.txt"
       OVPN_AUTH: "true"
       OVPN_AUTH_DB_PATH: "/mnt/easyrsa/pki/users.db"
+      # shared with the slave (docker-compose-slave.yaml)
+      OVPN_MASTER_TOKEN: "TOKEN"
       LOG_LEVEL: "debug"
     network_mode: service:openvpn
     volumes:
       - ./easyrsa_master:/mnt/easyrsa
       - ./ccd_master:/mnt/ccd
+
+networks:
+  ovpn:
+    enable_ipv6: true
+    ipam:
+      config:
+        # 172.20.0.1 (the Docker host on this network) is the master.host address used by docker-compose-slave.yaml
+        - subnet: 172.20.0.0/24
+          gateway: 172.20.0.1
+        - subnet: fd00:172:20::/64
+          gateway: fd00:172:20::1

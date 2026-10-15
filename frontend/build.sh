@@ -1,7 +1,16 @@
 #!/bin/bash
+set -euo pipefail
 
-image="node:16.13.0-alpine3.12"
-uid="$(id -u $USER)"
+cd "$(dirname "$0")"
 
-docker run -u $uid -w /app -v $(pwd):/app $image npm i && \
-docker run -u $uid -w /app -v $(pwd):/app $image npm run build
+image="node:24-alpine"
+uid="$(id -u)"
+gid="$(id -g)"
+
+run() {
+  # npm cache goes to /tmp: the host uid has no writable home in the image
+  docker run --rm -u "${uid}:${gid}" -e npm_config_cache=/tmp/.npm -w /app -v "$(pwd):/app" "${image}" "$@"
+}
+
+run npm ci
+run npm run build

@@ -10,13 +10,22 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"os"
+	"path/filepath"
+	"regexp"
+	"slices"
 	"strconv"
+	"strings"
+	"sync"
 	"time"
 )
 
 // decode certificate from PEM to x509
 func decodeCert(certPEMBytes []byte) (cert *x509.Certificate, err error) {
 	certPem, _ := pem.Decode(certPEMBytes)
+	if certPem == nil {
+		return nil, errors.New("error decode certificate PEM")
+	}
 	certPemBytes := certPem.Bytes
 
 	cert, err = x509.ParseCertificate(certPemBytes)
@@ -30,6 +39,9 @@ func decodeCert(certPEMBytes []byte) (cert *x509.Certificate, err error) {
 // decode private key from PEM to RSA format
 func decodePrivKey(privKey []byte) (key *rsa.PrivateKey, err error) {
 	privKeyPem, _ := pem.Decode(privKey)
+	if privKeyPem == nil {
+		return nil, errors.New("error decode private key PEM")
+	}
 	key, err = x509.ParsePKCS1PrivateKey(privKeyPem.Bytes)
 	if err == nil {
 		return
@@ -204,4 +216,67 @@ func genCRL(certs []*RevokedCert, ca *x509.Certificate, caKey *rsa.PrivateKey) (
 	}
 
 	return
+}
+
+var (
+	serverCertCache   sync.Map // index.txt serial -> bool
+	indexSerialRegexp = regexp.MustCompile(`^[0-9A-Fa-f]+$`)
+)
+
+// isServerCertificate reports whether the certificate of an index.txt line is an OpenVPN server
+// certificate: extended key usage serverAuth without clientAuth, as "easyrsa build-server-full"
+// issues it (whatever its CN is, e.g. the host name). Server certificates are neither listed nor
+// managed as users. The CN "server" (the server certificate of kubernetes.secrets) is always one.
+func isServerCertificate(line indexTxtLine) bool {
+	if line.Identity == "server" {
+		return true
+	}
+	if v, ok := serverCertCache.Load(line.SerialNumber); ok {
+		return v.(bool)
+	}
+
+	cert := readIndexTxtCertificate(line)
+	if cert == nil {
+		// not cached: the file may appear later (e.g. a slave before its first sync)
+		return false
+	}
+	server := slices.Contains(cert.ExtKeyUsage, x509.ExtKeyUsageServerAuth) &&
+		!slices.Contains(cert.ExtKeyUsage, x509.ExtKeyUsageClientAuth)
+	serverCertCache.Store(line.SerialNumber, server)
+	return server
+}
+
+// readIndexTxtCertificate reads the certificate of an index.txt line from the easy-rsa PKI:
+// certs_by_serial/<serial>.pem, revoked/certs_by_serial/<serial>.crt or issued/<CN>.crt
+// (the last one only if it has the same serial, a newer certificate may have the same CN).
+func readIndexTxtCertificate(line indexTxtLine) *x509.Certificate {
+	if !indexSerialRegexp.MatchString(line.SerialNumber) {
+		return nil
+	}
+	serial, ok := new(big.Int).SetString(line.SerialNumber, 16)
+	if !ok {
+		return nil
+	}
+
+	pki := filepath.Join(*easyrsaDirPath, "pki")
+	paths := []string{
+		filepath.Join(pki, "certs_by_serial", strings.ToUpper(line.SerialNumber)+".pem"),
+		filepath.Join(pki, "revoked", "certs_by_serial", strings.ToUpper(line.SerialNumber)+".crt"),
+	}
+	if usernameIsPathSafe(line.Identity) {
+		paths = append(paths, filepath.Join(pki, "issued", line.Identity+".crt"))
+	}
+
+	for _, path := range paths {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		cert, err := decodeCert(data)
+		if err != nil || cert.SerialNumber.Cmp(serial) != 0 {
+			continue
+		}
+		return cert
+	}
+	return nil
 }

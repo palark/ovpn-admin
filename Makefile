@@ -3,13 +3,14 @@ export SHELL := env PATH=$(PATH) /bin/sh
 
 GOOS?=$(shell go env GOOS)
 GOARCH?=$(shell go env GOARCH)
-GOLANGCI_VERSION = 1.55.2
-HELM_DOCS_VERSION = 1.11.0
+GOLANGCI_VERSION = 2.14.0
+HELM_DOCS_VERSION = 1.14.2
 
-ifeq ($(GOARCH),arm)
-	ARCH=armv7
-else
-	ARCH=$(GOARCH)
+# helm-docs release assets are named helm-docs_<version>_<Linux|Darwin>_<x86_64|arm64>.tar.gz
+HELM_DOCS_OS := $(shell uname -s)
+HELM_DOCS_ARCH := $(shell uname -m)
+ifeq ($(HELM_DOCS_ARCH),aarch64)
+	HELM_DOCS_ARCH = arm64
 endif
 
 COMMIT=$(shell git rev-parse --verify HEAD)
@@ -25,7 +26,7 @@ bin/golangci-lint: bin/golangci-lint-${GOLANGCI_VERSION}
 	@ln -sf golangci-lint-${GOLANGCI_VERSION} bin/golangci-lint
 
 bin/golangci-lint-${GOLANGCI_VERSION}:
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | BINARY=golangci-lint bash -s -- v${GOLANGCI_VERSION}
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/v${GOLANGCI_VERSION}/install.sh | sh -s -- -b bin v${GOLANGCI_VERSION}
 	@mv bin/golangci-lint $@
 
 ###########
@@ -36,7 +37,7 @@ bin/helm-docs: bin/helm-docs-${HELM_DOCS_VERSION}
 	@ln -sf helm-docs-${HELM_DOCS_VERSION} bin/helm-docs
 bin/helm-docs-${HELM_DOCS_VERSION}:
 	@mkdir -p bin
-	curl -L https://github.com/norwoodj/helm-docs/releases/download/v${HELM_DOCS_VERSION}/helm-docs_${HELM_DOCS_VERSION}_$(shell uname)_x86_64.tar.gz | tar -zOxf - helm-docs > ./bin/helm-docs-${HELM_DOCS_VERSION} && chmod +x ./bin/helm-docs-${HELM_DOCS_VERSION}
+	curl -sSfL https://github.com/norwoodj/helm-docs/releases/download/v${HELM_DOCS_VERSION}/helm-docs_${HELM_DOCS_VERSION}_${HELM_DOCS_OS}_${HELM_DOCS_ARCH}.tar.gz | tar -zOxf - helm-docs > ./bin/helm-docs-${HELM_DOCS_VERSION} && chmod +x ./bin/helm-docs-${HELM_DOCS_VERSION}
 
 .PHONY: lint fix
 lint: bin/golangci-lint

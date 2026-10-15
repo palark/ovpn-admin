@@ -1,19 +1,26 @@
-FROM node:16-alpine3.15 AS frontend-builder
-COPY ../frontend /app
-RUN apk add --update python3 make g++ && cd /app && npm install && npm run build
+FROM node:24-alpine AS frontend-builder
+WORKDIR /app
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
 
-FROM golang:1.24.6-bullseye AS backend-builder
+FROM golang:1.26-alpine AS backend-builder
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
 COPY --from=frontend-builder /app/static /app/frontend/static
-COPY .. /app
 ARG TARGETARCH
-RUN cd /app && env CGO_ENABLED=1 GOOS=linux GOARCH=${TARGETARCH} go build -a -tags netgo -ldflags '-linkmode external -extldflags -static -s -w' -o ovpn-admin
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -trimpath -buildvcs=false -ldflags '-s -w' -o ovpn-admin
 
 FROM alpine:3.24
 WORKDIR /app
 COPY --from=backend-builder /app/ovpn-admin /app
 ARG TARGETARCH
-RUN apk add --update bash easy-rsa openssl openvpn coreutils  && \
+# sqlite: ovpn-admin fixes users.db rows migrated from openvpn-user <= 1.0.4 (secret IS NULL) at startup
+RUN apk add --update bash easy-rsa openssl openvpn coreutils sqlite && \
     ln -s /usr/share/easy-rsa/easyrsa /usr/local/bin && \
-    wget https://github.com/pashcovich/openvpn-user/releases/download/v1.0.4/openvpn-user-linux-${TARGETARCH}.tar.gz -O - | tar xz -C /usr/local/bin && \
+    wget https://github.com/pashcovich/openvpn-user/releases/download/v1.0.9/openvpn-user-linux-${TARGETARCH}.tar.gz -O - | tar xz -C /usr/local/bin && \
     rm -rf /tmp/* /var/tmp/* /var/cache/apk/* /var/cache/distfiles/*
 RUN if [ -f "/usr/local/bin/openvpn-user-${TARGETARCH}" ]; then ln -s /usr/local/bin/openvpn-user-${TARGETARCH} /usr/local/bin/openvpn-user; fi

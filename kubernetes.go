@@ -7,14 +7,14 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
-	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -49,7 +49,7 @@ type OpenVPNPKI struct {
 	ServerCertPEM    *bytes.Buffer
 	ClientCerts      []ClientCert
 	RevokedCerts     []RevokedCert
-	KubeClient       *kubernetes.Clientset
+	KubeClient       kubernetes.Interface
 }
 
 type ClientCert struct {
@@ -67,7 +67,7 @@ type RevokedCert struct {
 
 func (openVPNPKI *OpenVPNPKI) run() (err error) {
 	if _, err := os.Stat(kubeNamespaceFilePath); err == nil {
-		file, err := ioutil.ReadFile(kubeNamespaceFilePath)
+		file, err := os.ReadFile(kubeNamespaceFilePath)
 		if err != nil {
 			return err
 		}
@@ -124,10 +124,17 @@ func (openVPNPKI *OpenVPNPKI) run() (err error) {
 	return
 }
 
-func (openVPNPKI *OpenVPNPKI) initKubeClient() (err error) {
-	config, _ := rest.InClusterConfig()
-	openVPNPKI.KubeClient, err = kubernetes.NewForConfig(config)
-	return
+func (openVPNPKI *OpenVPNPKI) initKubeClient() error {
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		return err
+	}
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+	openVPNPKI.KubeClient = clientset
+	return nil
 }
 
 func (openVPNPKI *OpenVPNPKI) initPKI() (err error) {
@@ -259,7 +266,7 @@ func (openVPNPKI *OpenVPNPKI) indexTxtUpdate() (err error) {
 func (openVPNPKI *OpenVPNPKI) updateIndexTxtOnDisk() (err error) {
 	secret, err := openVPNPKI.secretGetByName(secretIndexTxt)
 	indexTxt := secret.Data["index.txt"]
-	err = ioutil.WriteFile(fmt.Sprintf("%s/pki/index.txt", *easyrsaDirPath), indexTxt, 0600)
+	err = os.WriteFile(fmt.Sprintf("%s/pki/index.txt", *easyrsaDirPath), indexTxt, 0600)
 	return
 }
 
@@ -374,6 +381,7 @@ func (openVPNPKI *OpenVPNPKI) easyrsaGetClientCert(commonName string) (cert, key
 	secret, err := openVPNPKI.secretGetByLabels("name=" + commonName)
 	if err != nil {
 		log.Error(err)
+		return
 	}
 
 	cert = string(secret.Data[certFileName])
@@ -574,27 +582,27 @@ func (openVPNPKI *OpenVPNPKI) updateFilesFromSecrets() (err error) {
 		err = os.MkdirAll(fmt.Sprintf("%s/pki/private", *easyrsaDirPath), 0755)
 	}
 
-	err = ioutil.WriteFile(fmt.Sprintf("%s/pki/ca.crt", *easyrsaDirPath), ca.CertPEM.Bytes(), 0600)
+	err = os.WriteFile(fmt.Sprintf("%s/pki/ca.crt", *easyrsaDirPath), ca.CertPEM.Bytes(), 0600)
 	if err != nil {
 		return
 	}
 
-	err = ioutil.WriteFile(fmt.Sprintf("%s/pki/issued/server.crt", *easyrsaDirPath), server.CertPEM.Bytes(), 0600)
+	err = os.WriteFile(fmt.Sprintf("%s/pki/issued/server.crt", *easyrsaDirPath), server.CertPEM.Bytes(), 0600)
 	if err != nil {
 		return
 	}
 
-	err = ioutil.WriteFile(fmt.Sprintf("%s/pki/private/server.key", *easyrsaDirPath), server.PrivKeyPEM.Bytes(), 0600)
+	err = os.WriteFile(fmt.Sprintf("%s/pki/private/server.key", *easyrsaDirPath), server.PrivKeyPEM.Bytes(), 0600)
 	if err != nil {
 		return
 	}
 
-	err = ioutil.WriteFile(fmt.Sprintf("%s/pki/ta.key", *easyrsaDirPath), takey, 0600)
+	err = os.WriteFile(fmt.Sprintf("%s/pki/ta.key", *easyrsaDirPath), takey, 0600)
 	if err != nil {
 		return
 	}
 
-	err = ioutil.WriteFile(fmt.Sprintf("%s/pki/dh.pem", *easyrsaDirPath), dhparam, 0600)
+	err = os.WriteFile(fmt.Sprintf("%s/pki/dh.pem", *easyrsaDirPath), dhparam, 0600)
 	if err != nil {
 		return
 	}
@@ -606,7 +614,7 @@ func (openVPNPKI *OpenVPNPKI) updateFilesFromSecrets() (err error) {
 func (openVPNPKI *OpenVPNPKI) updateCRLOnDisk() (err error) {
 	secret, err := openVPNPKI.secretGetByName(secretCRL)
 	crl := secret.Data["crl.pem"]
-	err = ioutil.WriteFile(fmt.Sprintf("%s/pki/crl.pem", *easyrsaDirPath), crl, 0644)
+	err = os.WriteFile(fmt.Sprintf("%s/pki/crl.pem", *easyrsaDirPath), crl, 0644)
 	if err != nil {
 		log.Errorf("error write crl.pem:%s", err.Error())
 	}
@@ -615,21 +623,22 @@ func (openVPNPKI *OpenVPNPKI) updateCRLOnDisk() (err error) {
 
 func (openVPNPKI *OpenVPNPKI) secretGenTaKeyAndDHParam() (err error) {
 	taKeyPath := "/tmp/ta.key"
-	cmd := exec.Command("bash", "-c", fmt.Sprintf("/usr/sbin/openvpn --genkey --secret %s", taKeyPath))
+	// "--genkey secret FILE" (OpenVPN 2.5+); the old "--genkey --secret FILE" form is rejected by OpenVPN 2.7
+	cmd := exec.Command("/usr/sbin/openvpn", "--genkey", "secret", taKeyPath)
 	stdout, err := cmd.CombinedOutput()
-	log.Info(fmt.Sprintf("/usr/sbin/openvpn --genkey --secret %s: %s", taKeyPath, string(stdout)))
+	log.Infof("/usr/sbin/openvpn --genkey secret %s: %s", taKeyPath, string(stdout))
 	if err != nil {
 		return
 	}
-	taKey, err := ioutil.ReadFile(taKeyPath)
+	taKey, err := os.ReadFile(taKeyPath)
 
 	dhparamPath := "/tmp/dh.pem"
-	cmd = exec.Command("bash", "-c", fmt.Sprintf("openssl dhparam -out %s 2048", dhparamPath))
+	cmd = exec.Command("openssl", "dhparam", "-out", dhparamPath, "2048")
 	_, err = cmd.CombinedOutput()
 	if err != nil {
 		return
 	}
-	dhparam, err := ioutil.ReadFile(dhparamPath)
+	dhparam, err := os.ReadFile(dhparamPath)
 
 	secretMetaData := metav1.ObjectMeta{Name: secretDHandTA}
 
@@ -655,7 +664,7 @@ func (openVPNPKI *OpenVPNPKI) secretGetCcd(commonName string) (ccd string) {
 		return
 	}
 
-	for k, _ := range secret.Data {
+	for k := range secret.Data {
 		if k == "ccd" {
 			ccd = string(secret.Data["ccd"])
 			return
@@ -664,46 +673,57 @@ func (openVPNPKI *OpenVPNPKI) secretGetCcd(commonName string) (ccd string) {
 	return
 }
 
-func (openVPNPKI *OpenVPNPKI) secretUpdateCcd(commonName string, ccd []byte) {
+// secretUpdateCcd stores the ccd of a user in its secret and writes the ccd files to disk.
+// An empty ccd is stored as well: it replaces the previous file (static address, routes).
+func (openVPNPKI *OpenVPNPKI) secretUpdateCcd(commonName string, ccd []byte) error {
 	secret, err := openVPNPKI.secretGetByLabels("name=" + commonName)
 	if err != nil {
-		log.Error(err)
-		return
+		return fmt.Errorf("get secret of user %s: %w", commonName, err)
+	}
+	if secret.Data == nil {
+		secret.Data = map[string][]byte{}
 	}
 	secret.Data["ccd"] = ccd
 
 	err = openVPNPKI.secretUpdate(secret.ObjectMeta, secret.Data, v1.SecretTypeTLS)
 	if err != nil {
-		log.Errorf("secret (%s) update error: %s", secret.Name, err.Error())
+		return fmt.Errorf("secret (%s) update error: %w", secret.Name, err)
 	}
 
-	err = openVPNPKI.updateCcdOnDisk()
-	if err != nil {
-		log.Error(err)
-	}
+	return openVPNPKI.updateCcdOnDisk()
 }
 
-func (openVPNPKI *OpenVPNPKI) updateCcdOnDisk() (err error) {
+// updateCcdOnDisk writes the ccd of every client secret to the ccd dir shared with OpenVPN.
+// Secrets with an empty ccd get an empty file, so that a previously written static
+// address does not stay active after it was cleared.
+func (openVPNPKI *OpenVPNPKI) updateCcdOnDisk() error {
 	secrets, err := openVPNPKI.secretsGetByLabels("index.txt=,type=clientAuth")
 	if err != nil {
-		return
+		return err
 	}
 
-	if _, err := os.Stat(*ccdDir); os.IsNotExist(err) {
-		err = os.MkdirAll(*ccdDir, 0755)
+	if err := os.MkdirAll(*ccdDir, 0755); err != nil {
+		return err
 	}
 
+	var writeErr error
 	for _, secret := range secrets.Items {
-		ccd := secret.Data["ccd"]
-		if len(ccd) > 0 {
-			err = ioutil.WriteFile(fmt.Sprintf("%s/%s", *ccdDir, secret.Labels["name"]), ccd, 0644)
-			if err != nil {
-				log.Error(err)
-			}
+		ccd, ok := secret.Data["ccd"]
+		if !ok {
+			continue
+		}
+		name := secret.Labels[labelKeyName]
+		if !usernameIsPathSafe(name) {
+			log.Warnf("updateCcdOnDisk: skipping secret %s with unsafe name label %q", secret.Name, name)
+			continue
+		}
+		if err := os.WriteFile(filepath.Join(*ccdDir, name), ccd, 0644); err != nil {
+			log.Error(err)
+			writeErr = err
 		}
 	}
 
-	return
+	return writeErr
 }
 
 //
@@ -791,7 +811,5 @@ func (openVPNPKI *OpenVPNPKI) transferRoutes(revokedSecret *v1.Secret, newNameCe
 		return nil
 	}
 
-	openVPNPKI.secretUpdateCcd(newNameCert, ccd)
-
-	return nil
+	return openVPNPKI.secretUpdateCcd(newNameCert, ccd)
 }

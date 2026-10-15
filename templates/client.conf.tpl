@@ -9,6 +9,8 @@ dev tun
 cipher AES-128-CBC
 key-direction 1
 #redirect-gateway def1
+# if the server has IPv6 enabled, use this line instead to route IPv6 traffic as well
+#redirect-gateway def1 ipv6
 tls-client
 remote-cert-tls server
 # uncomment below lines for use with linux

@@ -20,6 +20,6 @@ updates:
 
   # Dependencies listed in frontend/package.json
   - package-ecosystem: "npm"
-    directory: "/"
+    directory: "/frontend"
     schedule:
       interval: "weekly"
