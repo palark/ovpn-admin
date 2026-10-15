@@ -350,16 +350,16 @@ const app = createApp({
       return this.ipv6Enabled || (this.u.ccd.ClientAddressIPv6 != "" && !this.customAddressIPv6Dynamic)
     },
     ccdApplyStatusCssClass: function () {
-        return this.u.ccdApplyStatus == 200 ? "alert-success" : "alert-danger"
+        return this.u.ccdApplyStatus == 200 ? "success" : "error"
     },
     passwordChangeStatusCssClass: function () {
-      return this.u.passwordChangeStatus == 200 ? "alert-success" : "alert-danger"
+      return this.u.passwordChangeStatus == 200 ? "success" : "error"
     },
     userRotateStatusCssClass: function () {
-      return this.u.rotateUserStatus == 200 ? "alert-success" : "alert-danger"
+      return this.u.rotateUserStatus == 200 ? "success" : "error"
     },
     deleteUserStatusCssClass: function () {
-      return this.u.deleteUserStatus == 200 ? "alert-success" : "alert-danger"
+      return this.u.deleteUserStatus == 200 ? "success" : "error"
     },
     modalNewUserDisplay: function () {
       return this.u.modalNewUserVisible ? {display: 'flex'} : {}
@@ -534,7 +534,8 @@ const app = createApp({
         _this.u.ccdLoaded = true;
       })
       .catch(function(error) {
-        _this.$notify({title: 'Loading ccd for user ' + _this.username + ' failed!', text: errorMessage(error), type: 'error'})
+        _this.u.ccdApplyStatus = error.response ? error.response.status : '';
+        _this.u.ccdApplyStatusMessage = 'Loading ccd failed: ' + errorMessage(error);
       });
     },
     disconnectUserAction: function() {
@@ -597,7 +598,6 @@ const app = createApp({
 
       axios.request(axios_cfg('api/user/create', data, 'form'))
       .then(function(response) {
-        _this.$notify({title: 'New user ' + _this.username + ' created', type: 'success'})
         _this.u.modalNewUserVisible = false;
         _this.u.newUserName = '';
         _this.u.newUserPassword = '';
@@ -605,7 +605,6 @@ const app = createApp({
       })
       .catch(function(error) {
         _this.u.newUserCreateError = errorMessage(error);
-        _this.$notify({title: 'New user ' + _this.username + ' creation failed.', type: 'error'})
 
       });
     },
@@ -649,12 +648,10 @@ const app = createApp({
       .then(function(response) {
         _this.u.ccdApplyStatus = 200;
         _this.u.ccdApplyStatusMessage = String(response.data);
-        _this.$notify({title: 'Ccd for user ' + _this.username + ' applied', type: 'success'})
       })
       .catch(function(error) {
         _this.u.ccdApplyStatus = error.response ? error.response.status : '';
         _this.u.ccdApplyStatusMessage = errorMessage(error);
-        _this.$notify({title: 'Ccd for user ' + _this.username + ' apply failed ', type: 'error'})
       });
     },
 
@@ -670,15 +667,13 @@ const app = createApp({
       axios.request(axios_cfg('api/user/change-password', data, 'form'))
         .then(function(response) {
           _this.u.passwordChangeStatus = 200;
+          _this.u.passwordChangeMessage = 'Password for user ' + _this.username + ' changed';
           _this.u.newPassword = '';
           _this.getUserData();
-          _this.u.modalChangePasswordVisible = false;
-          _this.$notify({title: 'Password for user ' + _this.username + ' changed!', type: 'success'})
         })
         .catch(function(error) {
           _this.u.passwordChangeStatus = error.response ? error.response.status : '';
           _this.u.passwordChangeMessage = errorMessage(error);
-          _this.$notify({title: 'Changing password for user ' + _this.username + ' failed!', type: 'error'})
         });
     },
 
@@ -697,12 +692,10 @@ const app = createApp({
           _this.u.newPassword = '';
           _this.getUserData();
           _this.u.modalRotateUserVisible = false;
-          _this.$notify({title: 'Certificates for user ' + _this.username + ' rotated!', type: 'success'})
         })
         .catch(function(error) {
           _this.u.rotateUserStatus = error.response ? error.response.status : '';
           _this.u.rotateUserMessage = errorMessage(error);
-          _this.$notify({title: 'Rotate certificates for user ' + _this.username + ' failed!', type: 'error'})
         })
     },
     deleteUser: function(user) {
@@ -719,12 +712,10 @@ const app = createApp({
           _this.u.newPassword = '';
           _this.getUserData();
           _this.u.modalDeleteUserVisible = false;
-          _this.$notify({title: 'User ' + _this.username + ' deleted!', type: 'success'})
         })
         .catch(function(error) {
           _this.u.deleteUserStatus = error.response ? error.response.status : '';
           _this.u.deleteUserMessage = errorMessage(error);
-          _this.$notify({title: 'Deleting user ' + _this.username + ' failed!', type: 'error'})
         })
     },
   }

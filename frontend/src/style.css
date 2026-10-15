@@ -95,8 +95,9 @@ body {
   flex: 1 1 auto;
   min-width: 0;
   margin: 0 0.5rem 0 0;
-  padding: 0.15rem 0.5rem;
-  font-size: 0.8rem;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
   line-height: 1.15;
   overflow: hidden;
   display: -webkit-box;
@@ -104,6 +105,20 @@ body {
   -webkit-line-clamp: 2;
   line-clamp: 2;
   overflow-wrap: anywhere;
+  /* the look of the notifications (@kyvg/vue3-notification) in both themes */
+  color: #fff;
+  background: #44a4fc;
+  border-left: 5px solid #187fe7;
+}
+
+.modal-status.success {
+  background: #68cd86;
+  border-left-color: #42a85f;
+}
+
+.modal-status.error {
+  background: #e54d42;
+  border-left-color: #b82e24;
 }
 
 /* browser add-ons (password managers, translators) overlay the bottom of the window: keep a strip
