@@ -25,6 +25,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Ubuntu 24.04 restricts unprivileged user namespaces with AppArmor, Buildah in werf needs them
+      # (otherwise werf fails with "Error during unshare(...): Operation not permitted")
+      - name: Allow unprivileged user namespaces
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
       - name: Install werf
         uses: werf/actions/install@v2
 
