@@ -292,6 +292,8 @@ const app = createApp({
       filters: {
         hideRevoked: cookies.get('hideRevoked') == "true",
       },
+      // set in index.html before the first paint
+      darkTheme: document.documentElement.getAttribute('data-bs-theme') === 'dark',
       serverRole: "master",
       lastSync: "unknown",
       modulesEnabled: [],
@@ -326,6 +328,11 @@ const app = createApp({
   mounted: function () {
     this.getUserData();
     this.getServerSetting();
+    // the rows change their height with the data and the window width (action buttons wrap)
+    const table = document.querySelector('.vgt-table');
+    if (table && window.ResizeObserver) {
+      new ResizeObserver(this.updatePageFooterHeight).observe(table);
+    }
   },
   computed: {
     ipv6Enabled: function () {
@@ -375,6 +382,12 @@ const app = createApp({
     revokeFilterText: function() {
       return this.filters.hideRevoked ? "Show revoked" : "Hide revoked"
     },
+    themeButtonText: function() {
+      return this.darkTheme ? "\u2600 Light" : "\u263E Dark"
+    },
+    themeButtonTitle: function() {
+      return this.darkTheme ? "Switch to the light theme" : "Switch to the dark theme"
+    },
     filteredRows: function() {
       if (this.filters.hideRevoked) {
         return this.rows.filter(function(account) {
@@ -387,6 +400,15 @@ const app = createApp({
 
   },
   methods: {
+    // the page footer is half a user row high (see .page-footer in style.css)
+    updatePageFooterHeight: function() {
+      // a user row has a line number cell, the "no users" row has not
+      const cell = document.querySelector('.vgt-table tbody th.line-numbers');
+      const height = cell ? Math.round(cell.parentElement.getBoundingClientRect().height / 2) : 0;
+      if (height > 0) {
+        document.documentElement.style.setProperty('--page-footer-height', height + 'px');
+      }
+    },
     rowStyleClassFn: function(row) {
       if (row.ConnectionStatus == 'Connected') {
         return 'connected-user'
@@ -430,6 +452,12 @@ const app = createApp({
     toggleRevokedFilter: function() {
       this.filters.hideRevoked = !this.filters.hideRevoked;
       cookies.set('hideRevoked', this.filters.hideRevoked);
+    },
+    toggleTheme: function() {
+      this.darkTheme = !this.darkTheme;
+      var theme = this.darkTheme ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-bs-theme', theme);
+      cookies.set('theme', theme);
     },
 
     revokeUserAction: function() {

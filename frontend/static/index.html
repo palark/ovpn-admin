@@ -4,6 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ovpn-admin</title>
+  <script>
+    // apply the theme before the first paint: the "theme" cookie (toggled in the UI), else the system preference
+    (function () {
+      var saved = document.cookie.match(/(?:^|; )theme=(dark|light)(?:;|$)/);
+      var dark = saved ? saved[1] === 'dark' : !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      document.documentElement.setAttribute('data-bs-theme', dark ? 'dark' : 'light');
+    })();
+  </script>
 </head>
 <body>
 <script src="dist/style.min.js"></script>
@@ -18,6 +26,7 @@
       <button type="button" class="btn btn-sm btn-success el-square" v-show="serverRole == 'master'" v-on:click.stop="u.modalNewUserVisible=true">Add user</button>
       <span class="badge text-bg-info el-square" v-if="serverRole == 'slave'">Slave - last sync: {{ lastSync }}</span>
       <button type="button" class="btn btn-sm btn-secondary el-square" v-on:click.stop="toggleRevokedFilter()">{{ revokeFilterText }}</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary el-square theme-toggle" v-bind:title="themeButtonTitle" v-on:click.stop="toggleTheme()">{{ themeButtonText }}</button>
     </template>
     <template v-slot:emptystate>
       <div class="d-flex justify-content-center">
@@ -54,12 +63,8 @@
           <input type="password" class="form-control el-square modal-el-margin" minlength="6" autocomplete="off" placeholder="Password [_a-zA-Z0-9\.-]" v-model="u.newUserPassword" v-if="modulesEnabled.includes('passwdAuth')">
         </div>
 
-        <div class="modal-footer justify-content-center" v-if="u.newUserCreateError.length > 0">
-          <div class="alert alert-danger" role="alert" >
-            {{ u.newUserCreateError }}
-          </div>
-        </div>
         <div class="modal-footer">
+            <div class="alert alert-danger el-square modal-status" role="alert" v-if="u.newUserCreateError.length > 0" v-bind:title="u.newUserCreateError">{{ u.newUserCreateError }}</div>
             <button type="button" class="btn btn-success el-square modal-el-margin" v-on:click.stop="createUser()">Create</button>
             <button type="button" class="btn btn-primary el-square d-flex justify-content-sm-end modal-el-margin" v-on:click.stop="u.newUserName='';u.newUserPassword='nopass';u.newUserCreateError='';u.modalNewUserVisible=false">Close</button>
         </div>
@@ -77,12 +82,8 @@
           <input type="password" class="form-control el-square modal-el-margin" minlength="6" autocomplete="off" placeholder="Password [_a-zA-Z0-9\.-]" v-model="u.newPassword">
         </div>
 
-        <div class="modal-footer justify-content-center" v-if="u.passwordChangeMessage.length > 0">
-          <div class="alert" v-bind:class="passwordChangeStatusCssClass" role="alert" >
-            {{ u.passwordChangeMessage }}
-          </div>
-        </div>
         <div class="modal-footer">
+          <div class="alert el-square modal-status" role="alert" v-bind:class="passwordChangeStatusCssClass" v-if="u.passwordChangeMessage.length > 0" v-bind:title="u.passwordChangeMessage">{{ u.passwordChangeMessage }}</div>
           <button type="button" class="btn btn-success el-square modal-el-margin" v-on:click.stop="changeUserPassword(username)">Change password</button>
           <button type="button" class="btn btn-primary el-square d-flex justify-content-sm-end modal-el-margin" v-on:click.stop="u.newPassword='';u.passwordChangeMessage='';u.modalChangePasswordVisible=false">Close</button>
         </div>
@@ -176,12 +177,8 @@
             </tbody>
           </table>
         </div>
-        <div class="modal-footer justify-content-center" v-if="u.ccdApplyStatusMessage.length > 0">
-            <div class="alert" v-bind:class="ccdApplyStatusCssClass" role="alert">
-              {{ u.ccdApplyStatusMessage }}
-            </div>
-        </div>
         <div class="modal-footer">
+            <div class="alert el-square modal-status" role="alert" v-bind:class="ccdApplyStatusCssClass" v-if="u.ccdApplyStatusMessage.length > 0" v-bind:title="u.ccdApplyStatusMessage">{{ u.ccdApplyStatusMessage }}</div>
             <button type="button" class="btn btn-success el-square modal-el-margin" v-if="serverRole == 'master'" v-bind:disabled="!u.ccdLoaded" v-on:click.stop="ccdApply()">Save</button>
             <button type="button" class="btn btn-primary el-square modal-el-margin" v-on:click.stop="closeCcdModal()">Close</button>
         </div>
@@ -200,12 +197,8 @@
           <input type="password" class="form-control el-square modal-el-margin" minlength="6" autocomplete="off" placeholder="Password [_a-zA-Z0-9\.-]" v-model="u.newPassword">
         </div>
 
-        <div class="modal-footer justify-content-center" v-if="u.rotateUserMessage.length > 0">
-          <div class="alert" v-bind:class="userRotateStatusCssClass" role="alert" >
-            {{ u.rotateUserMessage }}
-          </div>
-        </div>
         <div class="modal-footer">
+          <div class="alert el-square modal-status" role="alert" v-bind:class="userRotateStatusCssClass" v-if="u.rotateUserMessage.length > 0" v-bind:title="u.rotateUserMessage">{{ u.rotateUserMessage }}</div>
           <button type="button" class="btn btn-danger el-square modal-el-margin" v-on:click.stop="rotateUser(username)">Rotate</button>
           <button type="button" class="btn btn-primary el-square d-flex justify-content-sm-end modal-el-margin" v-on:click.stop="u.newPassword='';u.rotateUserMessage='';u.modalRotateUserVisible=false">Close</button>
         </div>
@@ -220,12 +213,8 @@
           <h4>Confirm deleting user: <strong>{{ username }}</strong></h4>
         </div>
 
-        <div class="modal-footer justify-content-center" v-if="u.deleteUserMessage.length > 0">
-          <div class="alert" v-bind:class="deleteUserStatusCssClass" role="alert" >
-            {{ u.deleteUserMessage }}
-          </div>
-        </div>
         <div class="modal-footer">
+          <div class="alert el-square modal-status" role="alert" v-bind:class="deleteUserStatusCssClass" v-if="u.deleteUserMessage.length > 0" v-bind:title="u.deleteUserMessage">{{ u.deleteUserMessage }}</div>
           <button type="button" class="btn btn-danger el-square modal-el-margin" v-on:click.stop="deleteUser(username)">Delete</button>
           <button type="button" class="btn btn-primary el-square d-flex justify-content-sm-end modal-el-margin" v-on:click.stop="u.deleteUserMessage='';u.modalDeleteUserVisible=false">Close</button>
         </div>
@@ -234,6 +223,7 @@
   </div>
 
   <notifications position="bottom left" :speed="900"></notifications>
+  <footer class="page-footer"></footer>
 </div>
 <script src="dist/bundle.min.js"></script>
 </body>

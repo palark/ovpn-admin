@@ -77,10 +77,137 @@ body {
 .modal-show-config-txt-box {
   /* width: 50rem; */
   max-height: 30rem;
-  background-color: #ffffff;
+  background-color: var(--bs-body-bg);
   padding: 1rem;
 }
 
 .ccd-routes {
 
+}
+
+/* status messages sit in the footer row left of the buttons and never change the size of the
+   dialog: at most two lines within the height of a button, the full text is in the tooltip */
+.modal-footer {
+  flex-wrap: nowrap;
+}
+
+.modal-status {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0 0.5rem 0 0;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.8rem;
+  line-height: 1.15;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow-wrap: anywhere;
+}
+
+/* browser add-ons (password managers, translators) overlay the bottom of the window: keep a strip
+   of half a user row there (--page-footer-height is measured in main.js) so they do not cover the
+   last users; notifications move above it */
+:root {
+  --page-footer-height: 24px;
+}
+
+/* body is the scroll container (overflow-y: scroll) and its own padding is not scrollable: pad #app */
+#app {
+  padding-bottom: var(--page-footer-height);
+}
+
+.page-footer {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 900;
+  height: var(--page-footer-height);
+  background-color: var(--bs-tertiary-bg, #f8f9fa);
+  border-top: 1px solid var(--bs-border-color, #dee2e6);
+}
+
+.vue-notification-group {
+  margin-bottom: var(--page-footer-height);
+}
+
+/* dark theme: bootstrap switches with data-bs-theme="dark" on <html>, vue-good-table has fixed
+   light colors, so it gets the bootstrap dark palette here */
+[data-bs-theme="dark"] .connected-user {
+  background-color: rgba(25, 135, 84, 0.35);
+}
+
+[data-bs-theme="dark"] .revoked-user {
+  background-color: rgba(108, 117, 125, 0.4);
+}
+
+[data-bs-theme="dark"] .expired-user {
+  background-color: rgba(255, 193, 7, 0.25);
+}
+
+[data-bs-theme="dark"] table.vgt-table {
+  background-color: var(--bs-body-bg);
+  border-color: var(--bs-border-color);
+}
+
+[data-bs-theme="dark"] table.vgt-table td {
+  color: var(--bs-body-color);
+  border-bottom-color: var(--bs-border-color);
+}
+
+[data-bs-theme="dark"] .vgt-table thead th,
+[data-bs-theme="dark"] .vgt-table th.line-numbers {
+  color: var(--bs-body-color);
+  background: var(--bs-tertiary-bg);
+  border-color: var(--bs-border-color);
+}
+
+[data-bs-theme="dark"] .vgt-table.bordered td,
+[data-bs-theme="dark"] .vgt-table.bordered th {
+  border-color: var(--bs-border-color);
+}
+
+[data-bs-theme="dark"] .vgt-table th.sortable button:before {
+  border-top-color: var(--bs-secondary-color);
+}
+
+[data-bs-theme="dark"] .vgt-table th.sortable button:after {
+  border-bottom-color: var(--bs-secondary-color);
+}
+
+[data-bs-theme="dark"] .vgt-table thead th.sorting-desc button:before {
+  border-top-color: #409eff;
+}
+
+[data-bs-theme="dark"] .vgt-table thead th.sorting-asc button:after {
+  border-bottom-color: #409eff;
+}
+
+[data-bs-theme="dark"] .vgt-global-search {
+  background: var(--bs-tertiary-bg);
+  border-color: var(--bs-border-color);
+}
+
+[data-bs-theme="dark"] .vgt-input,
+[data-bs-theme="dark"] .vgt-input::placeholder {
+  color: var(--bs-body-color);
+}
+
+[data-bs-theme="dark"] .vgt-input {
+  background-color: var(--bs-body-bg);
+  border-color: var(--bs-border-color);
+}
+
+[data-bs-theme="dark"] .vgt-global-search__input .input__icon .magnifying-glass {
+  border-color: var(--bs-secondary-color);
+}
+
+[data-bs-theme="dark"] .vgt-global-search__input .input__icon .magnifying-glass:before {
+  background: var(--bs-secondary-color);
+}
+
+[data-bs-theme="dark"] .vgt-text-disabled {
+  color: var(--bs-secondary-color);
 }
